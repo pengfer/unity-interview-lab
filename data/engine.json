@@ -1,0 +1,340 @@
+[
+  {
+    "id": "engine-01",
+    "cat": "engine",
+    "level": "基础",
+    "type": "single",
+    "q": "一个默认激活的 GameObject 上挂有这个脚本。首次进入游戏时，控制台四条日志的先后顺序是？",
+    "code": "void Awake()    { Debug.Log(\"Awake\"); }\nvoid OnEnable() { Debug.Log(\"OnEnable\"); }\nvoid Start()    { Debug.Log(\"Start\"); }\nvoid Update()   { Debug.Log(\"Update\"); }",
+    "options": [
+      "Awake → OnEnable → Start → Update",
+      "Awake → Start → OnEnable → Update",
+      "OnEnable → Awake → Start → Update",
+      "Start → Awake → OnEnable → Update"
+    ],
+    "answer": [0],
+    "explain": "Awake 在对象实例加载时调用，先于 OnEnable；OnEnable 在组件变为启用状态时调用；Start 在该组件第一次启用后、第一次 Update 之前调用且只调用一次。因此首次激活的顺序是 Awake、OnEnable、Start、Update。若中途 SetActive(false) 再激活，会再次触发 OnEnable，但不会再次触发 Awake 和 Start。",
+    "tags": ["生命周期", "Awake", "OnEnable", "Start"]
+  },
+  {
+    "id": "engine-02",
+    "cat": "engine",
+    "level": "基础",
+    "type": "single",
+    "q": "把 Time.timeScale 设为 0 后，下列哪一项仍会按渲染帧执行？",
+    "options": [
+      "FixedUpdate",
+      "Update",
+      "物理模拟",
+      "OnCollisionEnter"
+    ],
+    "answer": [1],
+    "explain": "timeScale 会缩放 Time.deltaTime，并决定物理时间如何累积；设为 0 时物理模拟暂停，FixedUpdate 不再按固定步长调用，碰撞回调也不会产生。Update 仍然每个渲染帧执行，只是 Time.deltaTime 变成 0，所以基于 deltaTime 的移动会停住。此时做 UI 动画或倒计时应改用 Time.unscaledDeltaTime / WaitForSecondsRealtime。",
+    "tags": ["Time.timeScale", "FixedUpdate", "Update", "物理暂停"]
+  },
+  {
+    "id": "engine-03",
+    "cat": "engine",
+    "level": "基础",
+    "type": "single",
+    "q": "以下哪种修改能让 speed 继续表示“米/秒”，并且移动距离不随渲染帧率变化？",
+    "code": "public float speed = 5f;\n\nvoid Update()\n{\n    transform.position += Vector3.forward * speed;\n}",
+    "options": [
+      "transform.position += Vector3.forward * speed * Time.deltaTime;",
+      "transform.position += Vector3.forward * speed * Time.fixedDeltaTime;",
+      "把这段代码原样移到 FixedUpdate 中即可，不需要再乘时间。",
+      "把 speed 乘以 Time.frameCount。"
+    ],
+    "answer": [0],
+    "explain": "Update 的调用间隔随帧率变化，直接用 speed 表示“每帧移动 speed 米”，帧率越高移动越快。乘以 Time.deltaTime 后，speed 才表示“每秒移动 speed 米”，且 deltaTime 已包含 timeScale 的影响。在 FixedUpdate 中若要按秒描述速度，同样应乘 Time.fixedDeltaTime，而不是依赖固定步长自动换算。",
+    "tags": ["Time.deltaTime", "帧率无关", "Update"]
+  },
+  {
+    "id": "engine-04",
+    "cat": "engine",
+    "level": "基础",
+    "type": "single",
+    "q": "关于 MonoBehaviour 与 ScriptableObject 的核心区别，哪项正确？",
+    "options": [
+      "ScriptableObject 继承 UnityEngine.Object 但不是 Component，不能挂到 GameObject 上，通常作为可序列化数据资产在多个引用者之间共享。",
+      "ScriptableObject 必须挂在一个空 GameObject 上才能保存数据。",
+      "MonoBehaviour 不能保存为资产，因此不能用来做配置数据。",
+      "ScriptableObject 也有每帧自动调用的 Update，适合直接当作全局管理器。"
+    ],
+    "answer": [0],
+    "explain": "ScriptableObject 是独立于场景对象的 Unity 资产，没有 Transform，也没有 Update 这类每帧回调，优势是共享配置和减少重复数据。它被多个对象引用时是同一份实例，运行时修改会互相影响，在编辑器里还可能把改动写回资产，所以可变运行时状态要谨慎存放。MonoBehaviour 同样可以作为 Prefab 资产保存，只是它必须依附于 GameObject。",
+    "tags": ["ScriptableObject", "MonoBehaviour", "数据资产"]
+  },
+  {
+    "id": "engine-05",
+    "cat": "engine",
+    "level": "基础",
+    "type": "multi",
+    "q": "关于 GameObject 与 Component 的组合关系，哪些说法正确？",
+    "options": [
+      "GameObject 本身只是容器，具体行为由挂载的 Component 提供。",
+      "每个 GameObject 都有一个 Transform（UI 下是 RectTransform），它是不可移除的核心组件。",
+      "同一 GameObject 可以挂多个不同脚本；是否允许重复添加同类型组件由组件的 DisallowMultipleComponent 等规则决定。",
+      "同一 GameObject 可以添加两个 Rigidbody，让两个刚体分别参与物理模拟。"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "Unity 采用组合而非继承：GameObject 是实体容器，功能由 Component 拼装，脚本也是 Component。Transform 是每个 GameObject 的必需组件，UI 对象使用其子类 RectTransform；没有 Transform 的 GameObject 在 Unity 中不存在。Rigidbody 这类组件不允许同一对象重复添加，添加第二个会被拒绝或替换，因此第四项错误。",
+    "tags": ["GameObject", "Component", "组合模式", "Transform"]
+  },
+  {
+    "id": "engine-06",
+    "cat": "engine",
+    "level": "基础",
+    "type": "single",
+    "q": "父物体同时有旋转和缩放，子物体需要沿世界 Y 轴精确移动；该逻辑每帧执行。以下哪种实现最稳妥？",
+    "code": "private Transform _t;\n\nvoid Awake()\n{\n    _t = transform;\n}\n\nvoid Update()\n{\n    // 每帧让子物体在世界空间沿 Y 轴移动\n}",
+    "options": [
+      "_t.localPosition += Vector3.up * Time.deltaTime;",
+      "_t.position += Vector3.up * Time.deltaTime;",
+      "_t.Translate(Vector3.up * Time.deltaTime);",
+      "_t.position = new Vector3(_t.position.x, 1f, _t.position.z);"
+    ],
+    "answer": [1],
+    "explain": "Transform.position 使用世界坐标，直接加上世界方向的 Vector3.up 不受父物体旋转和缩放影响。localPosition 位于父物体局部空间，Translate 默认也是 Space.Self，父物体一旦旋转，实际移动方向就会偏。把 transform 在 Awake 中缓存为 _t 可以避免每帧重复查找组件；第四项则是把 Y 设为绝对值 1，不是相对移动。",
+    "tags": ["Transform", "世界坐标", "局部坐标", "缓存引用"]
+  },
+  {
+    "id": "engine-07",
+    "cat": "engine",
+    "level": "基础",
+    "type": "judge",
+    "q": "运行时销毁场景中的 GameObject 应优先使用 DestroyImmediate，因为它会立即释放对象，能避免一帧的延迟。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "Destroy 会把对象标记为待销毁，在当前帧结束时统一销毁并触发 OnDestroy，这种延迟让同一帧内其他逻辑仍能安全访问对象，也避免在遍历集合时破坏迭代。DestroyImmediate 会立刻销毁，容易让仍在引用的代码拿到失效对象，还可能误删资产，通常只用于编辑器工具。运行时需要立刻“消失”可以先 SetActive(false)，真正释放仍交给 Destroy。",
+    "tags": ["Destroy", "DestroyImmediate", "对象销毁"]
+  },
+  {
+    "id": "engine-08",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "single",
+    "q": "关于 Instantiate 与 Destroy 的调用时机，哪项正确？",
+    "options": [
+      "Instantiate 同步完成并返回对象，激活对象上的 Awake/OnEnable 已在返回前执行；Destroy 延迟到当前帧末，真正销毁前对象仍可能被引用。",
+      "Instantiate 总是延迟到下一帧创建，Awake 也在下一帧执行。",
+      "Destroy 会立即触发 OnDestroy，因此可以紧接着访问已销毁对象。",
+      "DestroyImmediate 适合在运行时遍历列表时安全删除元素。"
+    ],
+    "answer": [0],
+    "explain": "Instantiate 是同步调用，复制并激活对象时 Awake 和 OnEnable 会立即执行，Start 则等到下一次该对象启用后的第一帧 Update 前。Destroy 只是登记销毁，实际销毁发生在当前帧末，OnDestroy 也在那时调用；在销毁前对象仍可能被其他引用访问。DestroyImmediate 立即生效，反而更容易破坏正在进行的遍历和引用，不适合作为运行时默认选择。",
+    "tags": ["Instantiate", "Destroy", "对象生命周期"]
+  },
+  {
+    "id": "engine-09",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "multi",
+    "q": "关于场景加载与 DontDestroyOnLoad，哪些说法正确？",
+    "options": [
+      "SceneManager.LoadScene 同步加载并阻塞当前帧；LoadSceneAsync 返回 AsyncOperation，可用 allowSceneActivation 控制何时切换，progress 在其为 false 时通常最多到 0.9。",
+      "DontDestroyOnLoad 只对根 GameObject 生效；根对象及其子对象会跨场景保留，但重复进入原场景会再创建一个，需要自行去重。",
+      "DontDestroyOnLoad 只在播放模式下有意义；在编辑器中调用不会让对象在退出播放模式后继续留在编辑场景。",
+      "用 LoadSceneMode.Additive 加载的场景不会被算作已加载场景，必须调用 SetActiveScene 后才开始运行。"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "同步加载会阻塞主线程，异步加载则通过 AsyncOperation 分帧推进；allowSceneActivation 为 false 时加载进度停在约 0.9，直到允许激活。DontDestroyOnLoad 只作用于根对象，子对象随根保留；重复加载原场景会产生重复的常驻对象，常见做法是单例去重。Additive 场景加载完成后就会运行，SetActiveScene 影响的是新实例归属和光照等设置，并不是场景开始运行的前提。",
+    "tags": ["SceneManager", "LoadSceneAsync", "DontDestroyOnLoad", "多场景"]
+  },
+  {
+    "id": "engine-10",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "single",
+    "q": "用 LoadSceneMode.Additive 加载了 Level 场景，希望之后 Instantiate 的敌人归属该场景，以便 UnloadSceneAsync 时一并清理。最合适的做法是？",
+    "options": [
+      "加载后调用 SceneManager.SetActiveScene(levelScene)，再 Instantiate；也可用 SceneManager.MoveGameObjectToScene 把根对象移入。",
+      "直接 Instantiate，Unity 会按对象的世界坐标自动决定所属场景。",
+      "对敌人调用 DontDestroyOnLoad，它就会跟随 Level 场景卸载。",
+      "必须先把敌人预制体实例化到 Level 场景的 Inspector 中，运行时无法改变归属。"
+    ],
+    "answer": [0],
+    "explain": "运行时新实例化的对象默认进入当前 Active Scene，而不是按坐标或预制体来源归属；Additive 加载不会自动把新场景设为 Active。调用 SetActiveScene 后新对象会落入 Level，或者用 MoveGameObjectToScene 只移动根对象。卸载该 Additive 场景时，属于它的对象会被销毁；DontDestroyOnLoad 恰好相反，会让对象跨场景保留。",
+    "tags": ["Additive Scene", "SetActiveScene", "MoveGameObjectToScene", "场景卸载"]
+  },
+  {
+    "id": "engine-11",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "single",
+    "q": "关于 ExecuteInEditMode 与 ExecuteAlways，哪项正确？",
+    "options": [
+      "两者完全等价，只是 ExecuteAlways 是新名字。",
+      "两者都能让脚本在编辑模式执行；ExecuteAlways 还会在 Prefab 资源上执行，ExecuteInEditMode 不会。",
+      "ExecuteInEditMode 只在编辑器中生效，打包后脚本会被移除。",
+      "它们只影响 OnGUI 是否在 Scene 视图绘制。"
+    ],
+    "answer": [1],
+    "explain": "两个特性都会让 MonoBehaviour 的 Awake、Update、OnEnable 等回调在非播放模式下运行，方便做编辑器预览，但它们在 Prefab 资源上的行为不同：ExecuteAlways 会作用于 Prefab 资源，ExecuteInEditMode 不会。编辑模式下运行的回调同样会修改场景或资产，因此常用 Application.isPlaying 区分状态，并把生成、保存等操作限制在明确时机。打包后脚本仍然存在，不会因为该特性被移除。",
+    "tags": ["ExecuteInEditMode", "ExecuteAlways", "编辑器脚本"]
+  },
+  {
+    "id": "engine-12",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "judge",
+    "q": "OnApplicationQuit 在所有平台都能保证被调用，包括移动端被系统强杀或崩溃退出，因此适合在其中保存关键进度。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "OnApplicationQuit 主要在桌面端退出、编辑器停止播放等正常退出路径中调用；移动端应用可能被系统直接杀死或因崩溃退出，此时没有机会执行它。移动端更可靠的做法是在 OnApplicationPause(true) / OnApplicationFocus(false) 时及时落盘，并采用增量保存或事务式写入，避免只依赖退出回调。即使回调被调用，也应考虑写文件耗时和平台对后台执行的限制。",
+    "tags": ["Application", "OnApplicationQuit", "OnApplicationPause", "数据保存"]
+  },
+  {
+    "id": "engine-13",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "single",
+    "q": "Unity 协程的底层实现，哪项描述正确？",
+    "options": [
+      "协程运行在独立线程，yield 会让该线程休眠。",
+      "C# 编译器把含 yield 的迭代器方法编译成状态机，Unity 在 PlayerLoop 的协程更新阶段调用 MoveNext，根据 yield return 的对象决定何时恢复。",
+      "协程基于 Task，默认在线程池执行，因此可以安全地做阻塞 IO。",
+      "协程由 Update 通过反射逐帧调用协程方法。"
+    ],
+    "answer": [1],
+    "explain": "协程方法返回 IEnumerator，C# 编译器会生成一个状态机类，把局部变量和当前执行位置保存在字段中；Unity 每帧驱动 MoveNext，并根据 yield return 的对象判断恢复条件。它没有创建新线程，协程里的阻塞调用、死循环或大量计算仍然会卡住主线程。WaitForSeconds、WaitForEndOfFrame 等指令只是让 Unity 在合适的时机再次推进该状态机。",
+    "tags": ["协程", "迭代器", "状态机", "PlayerLoop"]
+  },
+  {
+    "id": "engine-14",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "single",
+    "q": "假设协程启动时 Time.time 约为 0，随后 timeScale 一直保持 0.5。两次日志输出的 Time.time 分别约为多少？",
+    "code": "IEnumerator Demo()\n{\n    Time.timeScale = 0.5f;\n    yield return new WaitForSeconds(1f);\n    Debug.Log(Time.time);\n    yield return new WaitForSecondsRealtime(1f);\n    Debug.Log(Time.time);\n}",
+    "options": [
+      "第一次约 0.5，第二次约 1.0",
+      "第一次约 1.0，第二次约 1.5",
+      "第一次约 2.0，第二次约 2.5",
+      "两次都约 1.0"
+    ],
+    "answer": [1],
+    "explain": "WaitForSeconds 使用受 timeScale 缩放的时间，timeScale 为 0.5 时等待 1 个“游戏秒”需要约 2 个真实秒，期间 Time.time 只增加约 1。之后 WaitForSecondsRealtime 使用真实时间，等 1 个真实秒期间 Time.time 再增加约 0.5，所以第二次日志约为 1.5。若 timeScale 为 0，WaitForSeconds 会一直等待，而 WaitForSecondsRealtime 仍会结束。",
+    "tags": ["WaitForSeconds", "WaitForSecondsRealtime", "Time.timeScale"]
+  },
+  {
+    "id": "engine-15",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "multi",
+    "q": "关于协程的停止与生命周期，哪些说法正确？",
+    "options": [
+      "把 MonoBehaviour.enabled 设为 false 会立即停止该组件启动的所有协程。",
+      "把所在 GameObject.SetActive(false) 会停止其上的协程；重新激活后不会从原来的 yield 位置自动恢复。",
+      "Destroy(gameObject) 会终止协程；在 OnDestroy 里再启动协程做延时清理不可靠。",
+      "StopCoroutine(Coroutine) 能精确停止对应句柄；StopCoroutine(string) 按方法名停止，同名多个时容易停错，且字符串调用有额外开销。"
+    ],
+    "answer": [1, 2, 3],
+    "explain": "禁用 MonoBehaviour 组件只会停掉它的 Update 等回调，已经启动的协程通常仍会继续运行，这是很常见的误区。禁用整个 GameObject 会停止其上的协程，重新启用也不会恢复；销毁对象同样会终止协程，因此在 OnDestroy 中再启动延时协程没有意义。保存 StartCoroutine 返回的 Coroutine 句柄再传给 StopCoroutine 最可靠，按字符串停止同名协程时只作用于其中一个，容易误停。",
+    "tags": ["协程", "StopCoroutine", "OnDisable", "对象销毁"]
+  },
+  {
+    "id": "engine-16",
+    "cat": "engine",
+    "level": "进阶",
+    "type": "single",
+    "q": "在 Project Settings > Script Execution Order 中把脚本 A 设为 -100，脚本 B 保持默认 0。以下哪项一定成立？",
+    "options": [
+      "A 的 Start 一定早于 B 的 Awake。",
+      "同一帧内同类事件（如 Awake、Update）A 先于 B；但不会改变单个脚本内部 Awake → OnEnable → Start 的顺序，也不保证不同类事件之间的跨阶段顺序。",
+      "只有 Update 受该设置影响，Awake 和 FixedUpdate 不受影响。",
+      "A 中启动的协程一定先于 B 中启动的协程恢复。"
+    ],
+    "answer": [1],
+    "explain": "Script Execution Order 调整的是各 MonoBehaviour 事件函数之间的相对顺序，配置为 -100 的 A 在同一类事件上会排到 B 前面。它不会打破 Unity 自身的生命周期阶段，也不会让 A.Start 跨到 B.Awake 之前，更不能保证协程恢复顺序。依赖初始化先后时，应显式调用初始化方法或使用事件/管理器，而不是只靠顺序设置。",
+    "tags": ["Script Execution Order", "脚本顺序", "生命周期"]
+  },
+  {
+    "id": "engine-17",
+    "cat": "engine",
+    "level": "高级",
+    "type": "multi",
+    "q": "关于 Prefab、嵌套 Prefab 与 Prefab Variant，哪些说法正确？",
+    "options": [
+      "嵌套 Prefab 的源资产应在 Prefab Mode 中编辑；场景实例上的修改会记录为 override，可以 Apply 回源 Prefab 或 Revert。",
+      "Prefab Variant 以另一个 Prefab 为基础，可覆盖属性、增删组件；基础 Prefab 的结构变化会传播到 Variant。",
+      "在场景中修改嵌套 Prefab 的子对象时，override 记录在最外层实例上，可通过 Open Prefab 进入对应层级继续编辑。",
+      "对实例执行 Unpack Prefab Completely 后，它仍与源 Prefab 保持链接，后续源 Prefab 的修改会继续同步。"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "Prefab 实例与源资产通过 override 机制关联，属性、组件和子对象的改动可以 Apply 或 Revert，嵌套层级则通过 Prefab Mode 进入编辑。Prefab Variant 继承基础 Prefab，只记录差异，因此基础结构变化会传播，除非被 Variant 覆盖。Unpack Prefab Completely 会把嵌套层级也展开，并切断实例与源 Prefab 的链接，之后的修改不再同步。",
+    "tags": ["Prefab", "嵌套 Prefab", "Prefab Variant", "Override"]
+  },
+  {
+    "id": "engine-18",
+    "cat": "engine",
+    "level": "高级",
+    "type": "single",
+    "q": "需要在每帧更新中获取场景内所有敌人并遍历，以下哪种方案最合适？",
+    "options": [
+      "每帧调用 GameObject.Find(\"Enemy\")。",
+      "每帧调用 GameObject.FindGameObjectsWithTag(\"Enemy\") 并遍历返回数组。",
+      "启动时用 FindObjectsOfType<Enemy>() 或由生成器注册收集一次，之后维护增删列表，Update 只遍历缓存。",
+      "在 Update 中对每个敌人调用 transform.Find 递归搜索。"
+    ],
+    "answer": [2],
+    "explain": "Find 系列 API 需要遍历场景层级或按标签扫描，FindGameObjectsWithTag 每次还会分配新数组，放在 Update 中会把开销随对象数量放大。更合适的做法是在初始化或生成/销毁时维护一份注册表，Update 只遍历缓存；对象池可以进一步避免频繁创建销毁。注意 FindObjectsOfType 默认找不到未激活对象，缓存列表也要同步处理禁用和销毁。",
+    "tags": ["Find", "性能优化", "对象管理"]
+  },
+  {
+    "id": "engine-19",
+    "cat": "engine",
+    "level": "高级",
+    "type": "judge",
+    "q": "可以通过 UnityEngine.LowLevel.PlayerLoop 获取当前 PlayerLoopSystem，插入或替换自定义系统来调整更新顺序；这不需要修改引擎源码，但自定义系统仍在主线程执行，异常和执行频率要自行处理。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "PlayerLoop.GetCurrentPlayerLoop 可以取得当前循环结构，配合 PlayerLoopSystem 和 SetPlayerLoop 能插入、移除或替换子系统，常用于自定义更新阶段或把一批逻辑集中调度。它运行在 Unity 主循环的主线程上，不会自动变成并行任务，耗时逻辑依然会造成卡顿。自定义系统需要自己处理异常、启用状态和频率，并注意编辑器域重载后要重新注册。",
+    "tags": ["PlayerLoop", "更新顺序", "主线程"]
+  },
+  {
+    "id": "engine-20",
+    "cat": "engine",
+    "level": "高级",
+    "type": "single",
+    "q": "代码希望每 60 个渲染帧生成一次敌人，并设置了 targetFrameRate 与 vSync。以下判断哪项正确？",
+    "code": "void Awake()\n{\n    Application.targetFrameRate = 60;\n    QualitySettings.vSyncCount = 1;\n}\n\nvoid Update()\n{\n    if (Time.frameCount % 60 == 0)\n        SpawnEnemy();\n}",
+    "options": [
+      "vSync 开启时 targetFrameRate 仍会强制精确 60 FPS，所以 60 帧一定等于 1 秒。",
+      "Time.frameCount 是渲染帧计数；targetFrameRate 只是目标值，受 vSync、性能和平台限制，60 帧不保证 1 秒，周期逻辑应基于累计时间。",
+      "Time.frameCount 每个 FixedUpdate 递增一次，因此这段代码与物理帧同步。",
+      "targetFrameRate 只影响编辑器，打包后无效。"
+    ],
+    "answer": [1],
+    "explain": "Time.frameCount 统计的是已经渲染的帧数，不是物理步数；帧率会受 vSync、设备性能、平台策略和编辑器开销影响，targetFrameRate 只是期望值而非硬保证。vSyncCount 大于 0 时帧率会被垂直同步约束，targetFrameRate 无法确保精确的 60 FPS。需要按时间周期生成时，应累计 Time.deltaTime 或使用计时器，而不是用 frameCount 取模。",
+    "tags": ["Time.frameCount", "targetFrameRate", "vSync", "帧率"]
+  },
+  {
+    "id": "engine-21",
+    "cat": "engine",
+    "level": "高级",
+    "type": "multi",
+    "q": "关于 Update、LateUpdate 与协程的调度，哪些说法正确？",
+    "options": [
+      "同一帧内通常先执行所有 Update，再执行所有 LateUpdate；yield return null 的协程一般在 Update 之后、LateUpdate 之前恢复。",
+      "StartCoroutine 会先同步执行协程体，直到遇到第一个 yield 才返回。",
+      "WaitForEndOfFrame 在渲染和 GUI 绘制之后恢复，常用于截图；它不依赖 timeScale。",
+      "协程恢复顺序由 Script Execution Order 精确控制，先启动的协程一定先恢复。"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "Unity 的主循环顺序中，Update 全部执行完后才进入 LateUpdate；yield return null 的协程通常在 Update 之后、LateUpdate 之前集中恢复。StartCoroutine 不是把整个方法排队到下一帧，而是立即同步执行到第一个 yield，因此启动前的初始化代码会当场运行。WaitForEndOfFrame 等的是帧末渲染与 GUI 完成，不按缩放时间计时；Script Execution Order 只配置事件函数，不能精确决定协程恢复顺序。",
+    "tags": ["Update", "LateUpdate", "协程", "WaitForEndOfFrame"]
+  },
+  {
+    "id": "engine-22",
+    "cat": "engine",
+    "level": "高级",
+    "type": "judge",
+    "q": "下一帧执行下面的检查时，第一行输出 True、第二行输出 False；这说明 Unity 的 UnityEngine.Object 重载了 ==，已销毁对象会被当作 null，但直接访问 go.name 仍可能抛 MissingReferenceException。",
+    "code": "public GameObject go; // 已在上一帧被 Destroy\n\nIEnumerator CheckNextFrame()\n{\n    yield return null;\n    Debug.Log(go == null);         // True\n    Debug.Log((object)go == null); // False\n}",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "UnityEngine.Object 重载了 == 和 !=，会比较底层原生对象是否仍然存在；对象被销毁后，C# 包装引用还在，但运算符会返回“等于 null”。把引用转成 object 或使用 ReferenceEquals 会绕过重载，因此第二行是 False。空条件运算符 ?. 和模式匹配 is null 也可能绕过该重载，访问已销毁对象的成员会抛 MissingReferenceException，所以 Unity 对象判空应明确使用 == null。",
+    "tags": ["伪空", "UnityEngine.Object", "Destroy", "空引用"]
+  }
+]

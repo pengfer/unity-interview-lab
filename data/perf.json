@@ -1,0 +1,303 @@
+[
+  {
+    "id": "perf-01",
+    "cat": "perf",
+    "level": "基础",
+    "type": "single",
+    "q": "在 Editor 里用 Profiler 定位卡顿，开启 Deep Profile 后帧率骤降。下面哪种理解是正确的？",
+    "options": [
+      "Deep Profile 会对每个方法调用插桩记录，开销可达数倍到数十倍，只适合短时间定位热点，不能用来评估真实帧率",
+      "Deep Profile 会关闭 GC，所以内存数据不准",
+      "Deep Profile 只影响 GPU 采集，CPU 数据仍然准确",
+      "Deep Profile 必须配合 Development Build 才能启用"
+    ],
+    "answer": [0],
+    "explain": "Deep Profile 通过逐方法记录调用栈来定位热点，单帧开销远高于正常运行，帧率与耗时数据都会失真，只应短时间开启；常规流程是先用普通 Profiler 看模块级耗时，再局部开 Deep Profile 或看 Hierarchy 自下而上定位。真机分析则用 Development Build + Autoconnect Profiler。追问：为什么 Editor 的数据和 IL2CPP 真机差别很大（Mono/IL2CPP、JIT、编译优化）。",
+    "tags": ["Profiler", "DeepProfile", "性能分析"]
+  },
+  {
+    "id": "perf-02",
+    "cat": "perf",
+    "level": "基础",
+    "type": "single",
+    "q": "目标 60 FPS 的手游，QualitySettings.vSyncCount = 0，Application.targetFrameRate 应设为多少？对应每帧预算约多少毫秒？",
+    "options": [
+      "30，约 33.3ms",
+      "60，约 16.6ms",
+      "-1，由系统动态决定，无需关心预算",
+      "120，约 8.3ms"
+    ],
+    "answer": [1],
+    "explain": "vSyncCount=0 时 targetFrameRate 才真正生效；60 FPS 对应 1000/60≈16.6ms，这是 CPU 主线程与 GPU 共同的上限，实际项目一般只用到 13~14ms，给波动留余量。设为 30 则预算 33.3ms，是移动端省电降温的常见选择；-1 表示不限制，会导致帧率随负载剧烈波动、发热更严重。追问：设了 targetFrameRate 仍达不到 60 时如何判断瓶颈在 CPU 还是 GPU。",
+    "tags": ["vsync", "targetFrameRate", "性能预算"]
+  },
+  {
+    "id": "perf-03",
+    "cat": "perf",
+    "level": "基础",
+    "type": "single",
+    "q": "下面哪段 Update 代码最可能在运行时产生持续的 GC 分配？",
+    "code": "void Update()\n{\n    scoreText.text = \"Score: \" + score;\n    transform.position += Vector3.forward * Time.deltaTime;\n    if (Input.GetKeyDown(KeyCode.Space)) { }\n    var t = transform;\n}",
+    "options": [
+      "scoreText.text = \"Score: \" + score; 每次拼接都会生成新的 string",
+      "transform.position += Vector3.forward * Time.deltaTime; 会分配 Vector3",
+      "Input.GetKeyDown(KeyCode.Space) 每次都会装箱",
+      "var t = transform; 会复制整个 Transform 对象"
+    ],
+    "answer": [0],
+    "explain": "string 是不可变引用类型，每次 \"+\" 都会在堆上生成新字符串（int 转字符串也有分配）；按每帧 50~100 字节算，60 FPS 下约 3~6KB/s，单看不致命，但叠加上日志、装箱、LINQ 后很快就会触发 GC。Vector3 是 struct 不进堆，transform 是引用复制，GetKeyDown 也不装箱。正确做法是数值变化时才更新文本，并用 StringBuilder 或缓存字符串。追问：为什么 Text.text 赋相同内容不会触发重建（setter 内部比较字符串内容）。",
+    "tags": ["GC", "字符串拼接", "每帧分配"]
+  },
+  {
+    "id": "perf-04",
+    "cat": "perf",
+    "level": "基础",
+    "type": "judge",
+    "q": "判断：Physics.Raycast 在 FixedUpdate 中调用不会影响主线程帧率，因为物理系统运行在独立线程。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "Unity 的物理模拟与查询 API 都在主线程的 FixedUpdate 阶段同步执行，射线检测本身不产生 GC，但高频调用、MeshCollider、缺少 LayerMask 过滤都会明显吃 CPU。默认 FixedUpdate 间隔 0.02s（50Hz），把 Time.fixedDeltaTime 调小会线性增加物理计算次数。高频查询应使用 RaycastNonAlloc 复用结果数组并加 LayerMask。追问：FixedUpdate 与 Update 的调用频率关系，以及物理更新发生在哪一步。",
+    "tags": ["物理", "FixedUpdate", "Raycast"]
+  },
+  {
+    "id": "perf-05",
+    "cat": "perf",
+    "level": "基础",
+    "type": "single",
+    "q": "关于 struct 与 class 的性能取舍，下列说法正确的是？",
+    "options": [
+      "struct 是值类型，通常在栈上或内联存储，不产生 GC；但按值传递和放入集合会复制，过大时复制成本可能超过 class",
+      "struct 一定比 class 快，应该把业务数据全部改成 struct",
+      "class 是引用类型，所以永远不会产生 GC",
+      "struct 不能实现接口，因此不能用于泛型集合"
+    ],
+    "answer": [0],
+    "explain": "struct 适合小而短命的数据（Vector3、RaycastHit），能避免堆分配与 GC；但复制是按字节拷贝，超过约 16~24 字节后收益迅速下降，作为 Dictionary 的 key 时若没实现 IEquatable<T> 还会走装箱/反射式比较。class 适合有身份、生命周期长、需要继承和多态的对象。追问：为什么把 struct 赋给接口变量会发生装箱。",
+    "tags": ["struct", "class", "GC"]
+  },
+  {
+    "id": "perf-06",
+    "cat": "perf",
+    "level": "基础",
+    "type": "single",
+    "q": "用对象池替代频繁 Instantiate/Destroy 子弹，以下哪项不是对象池必须处理的问题？",
+    "options": [
+      "取出时重置状态，例如速度、计时器、事件订阅和动画",
+      "回收时 SetActive(false) 并入池，同时限制池容量避免无限增长",
+      "为保证每次取出的对象“干净”，回收时销毁并在取出时重新 Instantiate",
+      "场景切换或 Domain Reload 时清理池中的引用"
+    ],
+    "answer": [2],
+    "explain": "对象池的价值就是避免重复 Instantiate（克隆、Awake/OnEnable、资源加载）和 Destroy（GC 与销毁开销），每次重新实例化等于放弃全部收益。必须处理的是状态重置、容量上限、重复回收检测、跨场景清理，否则会出现状态残留或池无限膨胀。追问：池对象上残留的协程与事件订阅会导致什么问题。",
+    "tags": ["对象池", "Instantiate", "复用"]
+  },
+  {
+    "id": "perf-07",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "multi",
+    "q": "以下哪些写法会在运行时产生托管堆分配？（多选）",
+    "options": [
+      "在 Update 里写 () => { } 并捕获局部变量，形成闭包",
+      "对 List<int> 调用 Where(...).ToList()",
+      "用 foreach 遍历 List<int>",
+      "把 int 存进 Dictionary<string, object>"
+    ],
+    "answer": [0, 1, 3],
+    "explain": "捕获局部变量的 lambda 会让编译器生成一个闭包类实例；LINQ 每次调用分配迭代器与委托，ToList 再分配 List 和内部数组；int 存入 object 是装箱，取出时还要拆箱。foreach 遍历 List<T> 使用的是 struct 枚举器，不产生分配（但遍历 IEnumerable<T> 接口会装箱枚举器）。追问：如何用 Profiler 的 GC Alloc 列验证优化后是否达到 0B/帧。",
+    "tags": ["GC", "闭包", "LINQ", "装箱"]
+  },
+  {
+    "id": "perf-08",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "single",
+    "q": "以下哪种情况最可能导致“切场景后托管内存不降反升”的泄漏？",
+    "options": [
+      "静态事件或静态字典持有场景对象的引用，切场景时没有清空",
+      "用 using 包裹的 FileStream 在方法结束时被释放",
+      "局部变量在方法返回后超出作用域",
+      "在 Update 中读取 Time.deltaTime"
+    ],
+    "answer": [0],
+    "explain": "静态字段（包括 static event、单例缓存、lambda 捕获）属于 GC Root，会一直持有场景对象，使其无法被回收；事件只 += 不 -= 也是同类问题。Resources.UnloadUnusedAssets 只处理没有被引用的 UnityEngine.Object，管不了托管引用链。定位时用 MemoryProfiler 查看对象引用路径，确认是谁在持有。追问：为什么静态引用在 Editor 的 Domain Reload 关闭后更容易“假装泄漏”。",
+    "tags": ["内存泄漏", "静态引用", "事件解绑"]
+  },
+  {
+    "id": "perf-09",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "single",
+    "q": "关于 Resources 目录的使用，下列说法正确的是？",
+    "options": [
+      "Resources 下的资源会全部打进包体并在启动时建立索引，官方建议只放少量必要资源，其余用 Addressables/AssetBundle",
+      "Resources.Load 出来的资源只要 Destroy 实例就会自动释放内存",
+      "Resources.UnloadUnusedAssets 可以立即释放所有未使用资源，适合每帧调用",
+      "Resources 目录支持按需下载，不会增加包体大小"
+    ],
+    "answer": [0],
+    "explain": "Resources 目录的内容会全量进入安装包，并生成启动时加载的资源索引，目录越大启动越慢、包体越大，所以官方建议仅保留极少量必须资源。Destroy 只销毁实例，资源本体要等 UnloadUnusedAssets 或 UnloadAsset 才释放；UnloadUnusedAssets 是异步且开销较大，通常在切场景后调用一次。追问：Addressables 的引用计数机制与何时释放句柄。",
+    "tags": ["Resources", "资源管理", "Addressables"]
+  },
+  {
+    "id": "perf-10",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "single",
+    "q": "一张 2048×2048 的 UI 纹理，格式 RGBA32 且开启 Mipmap，运行时占用显存大约是？",
+    "options": [
+      "4 MB",
+      "16 MB",
+      "约 21 MB",
+      "64 MB"
+    ],
+    "answer": [2],
+    "explain": "2048×2048×4 字节 = 16MB，Mipmap 额外增加约 1/3，合计约 21.3MB。如果改为 ASTC 4×4（1 字节/像素），同样带 Mipmap 约 5.3MB；UI 通常不需要 Mipmap，且应关闭 Read/Write，否则 CPU 侧还会保留一份拷贝。追问：ETC2、ASTC、PVRTC 分别适合什么平台与内容类型。",
+    "tags": ["纹理", "显存", "压缩格式"]
+  },
+  {
+    "id": "perf-11",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "judge",
+    "q": "判断：把音频的 Load Type 从 Decompress On Load 改成 Compressed In Memory，会增加运行时内存占用。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "Decompress On Load 在加载时就把压缩数据解成 PCM 常驻内存，内存占用最大但播放时几乎不耗 CPU；Compressed In Memory 只保留压缩数据，播放时实时解码，内存更小、CPU 更高；Streaming 内存最小但 IO 频繁，适合长 BGM。短音效通常用 Decompress On Load 换 CPU，长音乐用 Streaming。追问：Vorbis 与 PCM 在移动端的解码开销差异。",
+    "tags": ["音频", "内存", "LoadType"]
+  },
+  {
+    "id": "perf-12",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "single",
+    "q": "关于 Unity 的几种合批方式，说法正确的是？",
+    "options": [
+      "静态合批在构建期合并网格、用内存换 Draw Call 且对象不可移动；动态合批有顶点数上限；SRP Batcher 主要降低 SetPass 开销而非严格减少 Draw Call",
+      "动态合批没有顶点数限制，适合所有复杂模型",
+      "SRP Batcher 要求所有材质参数完全一致才能生效",
+      "静态合批的对象在运行时可以自由移动，只是不能改材质"
+    ],
+    "answer": [0],
+    "explain": "Static Batching 把静态网格烘进大 buffer，代价是常驻内存增加且物体不能移动；Dynamic Batching 有大约 300 顶点、900 顶点属性的上限，复杂网格合不了；SRP Batcher 按 Shader 变体组织 CBUFFER，减少材质切换引起的 SetPass 与状态设置，但 Draw Call 数量未必下降。追问：GPU Instancing 生效需要哪些条件（同网格同材质、开启开关）。",
+    "tags": ["合批", "SRPBatcher", "DrawCall"]
+  },
+  {
+    "id": "perf-13",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "multi",
+    "q": "以下哪些手段能直接降低 CPU 端的渲染开销？（多选）",
+    "options": [
+      "对静态场景使用 Static Batching 或 GPU Instancing",
+      "用 LOD Group、视锥剔除和遮挡剔除减少可见物体",
+      "把高频刷新的 UI 拆到独立子 Canvas，避免整个 Canvas 重建",
+      "给所有材质新增更多 Shader Variant 以提升画质"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "合批与 Instancing 降低 SetPass 和提交次数；LOD 与剔除减少可见 draw call 与顶点处理；拆分 Canvas 把 UGUI 的 rebuild 限制在局部，属于典型的 CPU 侧优化。新增 Shader Variant 只会增加包体、编译和加载成本，对 CPU 渲染开销没有帮助，画质提升也不来自变体数量。追问：Overdraw 主要算 CPU 还是 GPU 瓶颈（GPU 填充率）。",
+    "tags": ["LOD", "剔除", "合批", "UI重建"]
+  },
+  {
+    "id": "perf-14",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "single",
+    "q": "移动端 UI 界面帧率低，Profiler 显示 CPU 主线程耗时正常但 GPU 耗时很高，最可能的原因是？",
+    "options": [
+      "Overdraw 严重：多层半透明 UI、全屏遮罩和粒子叠加把填充率打满",
+      "脚本里有大量字符串拼接导致 GC",
+      "Canvas 重建次数过多",
+      "场景里的碰撞体数量太多"
+    ],
+    "answer": [0],
+    "explain": "CPU 正常而 GPU 高，优先怀疑 fillrate：每一层全屏半透明 Image 都会让被覆盖像素重复着色，移动端 GPU 对带宽和填充率非常敏感；粒子和全屏后处理会进一步放大。字符串拼接与 Canvas 重建属于 CPU 问题，碰撞体影响的是物理线程。追问：如何用 Scene 视图的 Overdraw 模式或 Frame Debugger 量化层数。",
+    "tags": ["Overdraw", "填充率", "GPU"]
+  },
+  {
+    "id": "perf-15",
+    "cat": "perf",
+    "level": "进阶",
+    "type": "judge",
+    "q": "判断：粒子系统的每个粒子都会产生一次 Draw Call，所以粒子数量越多 Draw Call 一定越高。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "粒子按材质/贴图合批，一个 ParticleSystem 通常只有 1 到几个 Draw Call，粒子数量主要影响顶点处理、填充率和 CPU 端模拟开销，而不是线性增加 Draw Call。真正拉高 Draw Call 的是不同材质、子发射器、Trail/碰撞模块等。追问：如何判断粒子瓶颈在 CPU 模拟还是 GPU Overdraw。",
+    "tags": ["粒子系统", "DrawCall", "性能"]
+  },
+  {
+    "id": "perf-16",
+    "cat": "perf",
+    "level": "高级",
+    "type": "single",
+    "q": "关于 Job System + Burst，下列说法正确的是？",
+    "options": [
+      "Job 中不能直接访问 Transform、GameObject 等主线程 API，需要把数据放进 NativeArray，在主线程 Complete 后回写",
+      "Job 里可以随意 new class、访问静态托管对象",
+      "Burst 编译后会自动把任意 C# 代码并行化",
+      "Job 一旦 Schedule 就立即在后台完成，不需要 Complete"
+    ],
+    "answer": [0],
+    "explain": "Job 运行在 worker 线程，只能使用 blittable 数据与 NativeContainer，托管对象、Unity 主线程 API、静态托管状态都不可访问，结果要在主线程 Complete 后写回。Burst 只加速被它编译的 job 代码，不会把普通 C# 自动并行化。Schedule 只是入队，Complete 太早会丧失并行收益，太晚则造成主线程等待。追问：Temp、TempJob、Persistent 三种 NativeArray 分配器的生命周期与释放责任。",
+    "tags": ["JobSystem", "Burst", "多线程"]
+  },
+  {
+    "id": "perf-17",
+    "cat": "perf",
+    "level": "高级",
+    "type": "multi",
+    "q": "以下哪些是 GC 友好的写法？（多选）",
+    "options": [
+      "Physics.RaycastNonAlloc(ray, results, dist, mask) 复用结果数组",
+      "用 dict.TryGetValue(key, out var value) 代替 ContainsKey 加索引器",
+      "循环里用 StringBuilder 代替 string += 拼接",
+      "每帧调用 GetComponents<Collider>() 获取新数组"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "NonAlloc 系列把结果写进调用方提供的数组，避免每次查询分配；TryGetValue 一次哈希查找完成判断与取值，ContainsKey 加索引器要做两次；StringBuilder 复用内部缓冲，避免字符串反复复制带来的 O(n²) 分配。GetComponents 每次返回新数组，应改用带 List<T> 参数的重载或缓存结果。追问：Unity 2021+ 对 Span/ArrayPool 的支持情况与使用限制。",
+    "tags": ["NonAlloc", "TryGetValue", "StringBuilder"]
+  },
+  {
+    "id": "perf-18",
+    "cat": "perf",
+    "level": "高级",
+    "type": "single",
+    "q": "手机长时间游戏后发热降频，帧率从 60 掉到 40。以下应对策略最合理的是？",
+    "options": [
+      "动态降低渲染分辨率与画质档位，并限制目标帧率（如 30/45），用 Adaptive Performance 或自研分级策略随温度调整",
+      "把 targetFrameRate 设为 120，让手机更快渲染完",
+      "关闭 vsync 并固定 60 帧，发热问题就会消失",
+      "把所有材质换成 Standard 着色器以提升稳定性"
+    ],
+    "answer": [0],
+    "explain": "发热降频是 SoC 的热保护行为，只能通过降低持续负载解决：分辨率缩放、阴影/后处理降级、LOD、限制帧率都会直接减少 GPU/CPU 功耗。把帧率目标调高只会更热；固定 60 帧不改变单位时间的工作量；Standard 着色器更重而不是更轻。工程上要按机型分档并做 30 分钟以上的稳定性测试。追问：如何定义性能预算（如中端机 30 FPS、GPU 帧耗时 ≤ 12ms）。",
+    "tags": ["移动端", "发热降频", "画质分级"]
+  },
+  {
+    "id": "perf-19",
+    "cat": "perf",
+    "level": "高级",
+    "type": "judge",
+    "q": "判断：在 Android 真机上抓取 Unity Profiler 数据需要 Development Build 并勾选 Autoconnect Profiler；iOS 侧还可以用 Xcode Instruments 做 CPU/GPU 的深度分析。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "Unity Profiler 连接真机依赖 Development Build 提供的调试与 profiler 支持，Autoconnect Profiler 省去手动填 IP；Android 还可用 adb logcat、dumpsys gfxinfo、top 辅助定位。iOS 用 Instruments 的 Time Profiler、Metal System Trace 能看到 Unity Profiler 覆盖不到的系统级开销。追问：Release 包为什么连不上 Profiler（未开 Development Build、profiler 标记被剥离）。",
+    "tags": ["真机测试", "ADB", "Instruments"]
+  },
+  {
+    "id": "perf-20",
+    "cat": "perf",
+    "level": "高级",
+    "type": "multi",
+    "q": "以下哪些是造成“间歇性卡顿”的典型代码或做法？（多选）",
+    "options": [
+      "在 Update 中调用 GameObject.Find 或 Camera.main 查找对象",
+      "每帧调用 GetComponent<T>() 获取组件",
+      "每帧修改 LayoutGroup、频繁 SetActive 触发 UI 重建",
+      "在 Awake 中缓存 Transform 引用"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "GameObject.Find 会遍历场景层级，Camera.main 内部按 MainCamera tag 查找（新版本有缓存但仍有属性与查找开销），GetComponent 每次都要走原生到托管的调用；每帧触发 UI 重建会造成周期性耗时尖峰。Awake 缓存引用正是标准优化做法，不属于卡顿来源。追问：如何用 Profiler 的 Hierarchy 视图把尖峰定位到具体方法。",
+    "tags": ["Find", "GetComponent", "卡顿"]
+  }
+]

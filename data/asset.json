@@ -1,0 +1,303 @@
+[
+  {
+    "id": "asset-01",
+    "cat": "asset",
+    "level": "基础",
+    "type": "single",
+    "q": "新项目需要支持资源热更和按需加载，团队不想从零自建打包管线。下列资源管理方案选型最合理的是？",
+    "options": [
+      "全部放 Resources 目录，API 简单、随包发布，靠替换安装包更新",
+      "直接用原生 AssetBundle，自己实现依赖收集、版本管理、下载和卸载",
+      "使用 Addressables，它在 AssetBundle 之上封装了 Group、Label、Remote 加载和引用计数",
+      "把资源原样放进 StreamingAssets，运行时用 File.ReadAllBytes 读取后自己解析"
+    ],
+    "answer": [2],
+    "explain": "Resources 目录的资源会在打包时全量进包，且无法热更，启动时还要构建资源索引，只适合极小量的常驻资源。原生 AssetBundle 能力足够，但依赖收集、冗余检查、版本清单、下载校验、引用计数都要自己写，工程成本高。Addressables 是官方在 AB 之上的封装，提供 Group/Label/Remote 与 AsyncOperationHandle 引用计数，适合需要热更的中大型项目。StreamingAssets 只适合放原始文件，不具备资源导入、依赖和类型管理能力。追问：Addressables 底层仍是 AB，出现包体冗余时怎么排查？",
+    "tags": ["Addressables", "AssetBundle", "Resources", "资源热更"]
+  },
+  {
+    "id": "asset-02",
+    "cat": "asset",
+    "level": "基础",
+    "type": "judge",
+    "q": "Resources.Load 加载贴图时需要写完整扩展名，例如 Resources.Load<Sprite>(\"UI/icon.png\")。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "Resources.Load 的路径是相对 Resources 文件夹、且不带扩展名的，正确写法是 Resources.Load<Sprite>(\"UI/icon\")，带上 .png 会直接找不到资源。同一路径下如果存在多个不同类型的同名资源，加载时还会出现类型歧义，所以 Resources 目录要避免同名文件。另外 Resources 里的资源无法热更且会拖慢启动，正式项目通常只保留极少量启动必需资源。追问：Resources.UnloadUnusedAssets 应该在什么时机调用，它为什么会造成卡顿？",
+    "tags": ["Resources", "资源加载", "卸载"]
+  },
+  {
+    "id": "asset-03",
+    "cat": "asset",
+    "level": "基础",
+    "type": "single",
+    "q": "关于 AssetBundle.Unload(true) 与 Unload(false)，下列说法正确的是？",
+    "options": [
+      "true 只卸载 AB 文件镜像，已加载的 Asset 继续保留；false 会连 Asset 一起销毁",
+      "true 会销毁从该 AB 加载出的所有 Asset 实例，包括场景中仍在引用的对象；false 只释放 AB 自身镜像，Asset 仍由引用持有，需要之后再主动回收",
+      "两者没有本质区别，只是 true 执行更快",
+      "false 会立即释放全部内存，true 会延迟到下一帧才释放"
+    ],
+    "answer": [1],
+    "explain": "AssetBundle 是资源容器，Unload(true) 在卸载容器的同时销毁由它加载出来的 Asset，场景里正在使用的贴图、材质会变成 Missing，这是典型线上事故来源。Unload(false) 只释放 AB 自身（头部与文件镜像），已实例化的 Asset 仍留在内存，必须保证没有引用后再用 Resources.UnloadUnusedAssets 或框架的引用计数回收。实际项目多采用 false 加引用计数，只有确定该包资源全部无用（例如整包卸载某个活动）时才用 true。追问：如何定位一张贴图为什么卸载不掉？",
+    "tags": ["AssetBundle", "Unload", "引用计数", "内存"]
+  },
+  {
+    "id": "asset-04",
+    "cat": "asset",
+    "level": "基础",
+    "type": "single",
+    "q": "Android 真机上，热更下载的资源需要持久化保存并在下次启动继续使用，应该写到哪个目录？",
+    "options": [
+      "Application.dataPath",
+      "Application.streamingAssetsPath",
+      "Application.persistentDataPath",
+      "Application.temporaryCachePath"
+    ],
+    "answer": [2],
+    "explain": "dataPath 指向安装包内部（Android 上是 apk 内的资源视图），只读，不能写入。streamingAssetsPath 在 Android 上位于 apk 内（jar:file://），同样只读，而且必须用 UnityWebRequest 而不是 File API 读取。persistentDataPath 可读写、只有卸载应用才会清除，是热更资源落盘的唯一正确选择。temporaryCachePath 可能被系统在空间不足时清理，只适合放可重新下载的缓存。追问：iOS 与 WebGL 上这些路径分别有什么差异？",
+    "tags": ["persistentDataPath", "StreamingAssets", "热更新", "平台差异"]
+  },
+  {
+    "id": "asset-05",
+    "cat": "asset",
+    "level": "基础",
+    "type": "multi",
+    "q": "以下哪些纹理导入设置有助于降低包体或运行内存？",
+    "options": [
+      "非必要不勾选 Read/Write，避免在内存中保留一份可读写副本",
+      "UI 图集贴图关闭 Mipmap，避免生成用不到的多级纹理",
+      "Android 上优先使用 ASTC/ETC2 压缩格式，而不是 RGBA32 未压缩格式",
+      "把所有贴图的 Max Size 都调到 8192 以保证清晰度"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "Read/Write 开启后 CPU 侧会常驻一份纹理数据，内存直接翻倍，只有需要 GetPixels/SetPixels 或从纹理读数据时才应开启。Mipmap 会让纹理内存增加约三分之一，UI 和始终近距离显示的贴图通常不需要。ASTC/ETC2 是移动端硬件压缩格式，显存占用远低于 RGBA32，但要注意机型覆盖和 alpha 通道需求。把 Max Size 全部调大恰恰会显著增加内存和包体，应按实际显示尺寸设置。追问：ASTC 的块大小怎么选，Crunch 压缩适合什么场景？",
+    "tags": ["纹理导入", "纹理压缩", "Mipmap", "包体优化"]
+  },
+  {
+    "id": "asset-06",
+    "cat": "asset",
+    "level": "基础",
+    "type": "judge",
+    "q": "AssetBundle.LoadFromMemory 比 LoadFromFile 更省内存，因为它不需要把文件读进内存。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "LoadFromMemory 要求调用方先把整个 AB 的字节数组读进内存，Unity 内部还要再解压解析一份，峰值内存约等于原始字节加解压后的镜像，大包时非常危险。LoadFromFile 直接对文件做内存映射，内存占用低、加载也更快，是本地 AB 的首选。只有在 AB 已经以字节形式存在于内存中（例如网络下载后不落盘）时才考虑 LoadFromMemory。追问：LZ4 与 LZMA 压缩对加载速度和内存峰值的影响有什么不同？",
+    "tags": ["AssetBundle", "LoadFromMemory", "LoadFromFile", "内存"]
+  },
+  {
+    "id": "asset-07",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "single",
+    "q": "项目有约 2000 个 Prefab，大量共享材质、图集和 Shader。下列 AssetBundle 打包策略最合理的是？",
+    "options": [
+      "每个 Prefab 单独打一个 AB，加载最灵活",
+      "按目录结构一个目录打一个 AB，不再做其它处理",
+      "按逻辑分组（UI/角色/场景/特效等），把公共依赖抽成独立 AB 并让业务包依赖它，同时用依赖分析控制粒度与冗余",
+      "全部打成一个 AB，彻底避免依赖问题"
+    ],
+    "answer": [2],
+    "explain": "每个 Prefab 一个包会产生大量小文件，依赖关系爆炸，加载时 IO 和句柄管理成本极高。纯按目录打包会把逻辑上无关的资源绑在一起，更新粒度粗，而且公共依赖没有单独抽包时仍会重复。全打一个包虽然没依赖问题，但无法按需加载、内存峰值高、任何小改动都要整包更新。正确做法是按逻辑分组、公共依赖抽包，并用 AssetDatabase.GetDependencies 或构建报告检查冗余。追问：循环依赖会带来什么问题，怎么打破？",
+    "tags": ["AssetBundle", "打包策略", "依赖管理", "资源冗余"]
+  },
+  {
+    "id": "asset-08",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "single",
+    "q": "使用原生 AssetBundle 时，要在加载某个业务包之前先加载它的依赖包。依赖关系应该从哪里获取？",
+    "code": "var manifestAB = AssetBundle.LoadFromFile(Path.Combine(root, platformName));\nvar manifest = manifestAB.LoadAsset<AssetBundleManifest>(\"AssetBundleManifest\");\nstring[] deps = manifest.GetAllDependencies(\"ui/login\");",
+    "options": [
+      "每个 AB 旁边的同名 .manifest 文本文件，运行时直接读取",
+      "打包输出的 AssetBundleManifest（平台主包），用 GetAllDependencies 查询后按依赖顺序加载",
+      "Unity 会在加载业务包时自动递归加载依赖，不需要额外处理",
+      "依赖关系记录在 Editor.log 中，运行时解析日志"
+    ],
+    "answer": [1],
+    "explain": "每个 AB 同名的 .manifest 是给人看和 Editor 使用的文本，运行时读取不可靠也不高效。真正的依赖表在打包根目录生成的 AssetBundleManifest 里，通常打成一个以平台名命名的 AB（如 Android），先加载它再取出 AssetBundleManifest 资源。拿到依赖数组后要按拓扑顺序（先依赖、后自身）加载，否则会出现资源丢失或材质变紫。Addressables 则用 catalog 记录 location 与依赖，思路一致。追问：依赖包没加载就加载业务包，运行时会看到什么现象？",
+    "tags": ["AssetBundle", "AssetBundleManifest", "依赖管理", "主包"]
+  },
+  {
+    "id": "asset-09",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "multi",
+    "q": "以下哪些情况会造成 AssetBundle 冗余（同一资源被重复打进多个包）？",
+    "options": [
+      "两个业务 AB 都直接引用了同一张没有单独成包的贴图",
+      "图集 A 中的 Sprite 与图集 B 中的 Sprite 相互引用，导致两个图集包互相包含",
+      "材质引用了某个 Shader，而 Shader 没有单独打包，于是每个引用它的材质包都各带一份",
+      "把公共材质单独打成一个 AB，业务包只通过依赖引用它"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "冗余的本质是同一个 Asset 被多个 AB 包含，运行时这些包同时加载，内存里就会有多份实例。公共资源（Shader、共享材质、字体、通用图集）体积大、引用广，是冗余重灾区，必须单独抽包。第四项恰恰是消除冗余的标准手段，不会造成冗余。排查可以用 AssetBundle Browser 的冗余视图，或自建依赖分析脚本在打包前拦截。追问：Shader 变体爆炸和 AB 冗余是同一类问题吗？",
+    "tags": ["资源冗余", "依赖管理", "Shader", "图集"]
+  },
+  {
+    "id": "asset-10",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "single",
+    "q": "用 Addressables.LoadAssetAsync 加载一个 Prefab 并实例化到场景后，正确的释放方式是？",
+    "options": [
+      "实例化后调用 Resources.UnloadUnusedAssets() 即可",
+      "保存 LoadAssetAsync 返回的 AsyncOperationHandle，不再使用时调用 Addressables.Release(handle)；若是 InstantiateAsync 创建的实例则用 ReleaseInstance",
+      "调用 Object.Destroy 销毁实例后，资源会自动释放",
+      "不需要释放，Addressables 会在切场景时自动回收所有资源"
+    ],
+    "answer": [1],
+    "explain": "LoadAssetAsync 返回的 handle 会对 bundle 和 asset 分别做引用计数，Release 让计数减一，归零后才真正卸载。Object.Destroy 只销毁场景实例，不会减少 Addressables 的计数，不 Release 就是典型泄漏。多个系统加载同一资源时计数会叠加，必须每个 handle 都配对释放。切场景并不会自动回收，除非显式清理或使用带作用域的封装。追问：如何用 Addressables Event Viewer 或 Memory Profiler 验证资源确实释放了？",
+    "tags": ["Addressables", "引用计数", "资源泄漏", "AsyncOperationHandle"]
+  },
+  {
+    "id": "asset-11",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "judge",
+    "q": "Addressables 的 Label 可以把一批资源标记在一起，用 LoadAssetsAsync 按 Label 批量加载，并对返回的 handle 统一释放。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "Label 是运行时的逻辑筛选标签，一个 asset 可以属于多个 Label，按标签加载一批资源时会返回一个合并的 handle，释放它即可释放整批。它适合做预加载、分类加载和资源规约。但 Label 滥用会让一次加载意外拉入大量资源，通常要配合 Group 控制打包方式与加载模式。追问：Label 和 Group 的职责区别是什么？",
+    "tags": ["Addressables", "Label", "批量加载", "Group"]
+  },
+  {
+    "id": "asset-12",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "single",
+    "q": "资源热更新的完整流程，正确的顺序是？",
+    "options": [
+      "直接下载全部远端资源覆盖本地，然后重启游戏",
+      "请求版本号 → 拉取远端清单 → 与本地清单比对出差异 → 差异下载（支持断点续传）→ 校验大小与哈希 → 写入本地并更新版本记录 → 通知框架重载生效",
+      "先删除本地旧资源，再全量下载，最后校验",
+      "下载资源 → 校验 → 对比版本 → 生效"
+    ],
+    "answer": [1],
+    "explain": "顺序的关键是先用版本号和清单确定要下什么，再做文件粒度的差异下载，避免全量流量。校验必须在下完之后、生效之前，否则网络中断或 CDN 返回错误页会把坏文件写进本地。落盘要先写临时文件再原子替换，最后更新版本记录，保证中途崩溃后下次能续传或重试。全量覆盖和先删后下都会放大失败成本。追问：强更和弱更怎么区分，灰度发布与回滚怎么做？",
+    "tags": ["热更新", "版本管理", "清单", "CDN"]
+  },
+  {
+    "id": "asset-13",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "single",
+    "q": "关于 AssetBundle 的同步与异步加载，下列说法正确的是？",
+    "options": [
+      "同步加载一定比异步快，项目应统一使用同步加载",
+      "异步加载（LoadFromFileAsync/LoadAssetAsync）把工作分摊到多帧、不阻塞主线程，适合大包和切场景，但需要处理回调时序、并发去重和加载队列",
+      "异步加载只能用回调，不能配合协程",
+      "异步加载完成后资源已经自动实例化到场景中"
+    ],
+    "answer": [1],
+    "explain": "同步加载会阻塞主线程，包越大卡顿越明显，在战斗或切场景时尤其致命。异步加载把 IO 和解压分摊到多帧，但引入时序复杂度：同一资源可能被多处同时请求，需要合并请求或缓存 handle，还要用加载队列控制优先级和并发上限。异步完成只代表资源可用，实例化仍要自己做。追问：如何做一个带优先级和并发上限的加载队列，假进度条怎么设计？",
+    "tags": ["异步加载", "同步加载", "协程", "加载队列"]
+  },
+  {
+    "id": "asset-14",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "multi",
+    "q": "以下哪些属于有效的包体/首包优化手段？",
+    "options": [
+      "首包只保留启动必需资源，其余资源放远端按需下载",
+      "用依赖分析剔除未被引用的资源，并关闭不用的引擎模块、开启代码裁剪",
+      "音频统一使用未压缩 PCM WAV，保证音质",
+      "合并图集减少重复贴图，纹理按平台使用 ASTC/ETC2 并合理降低 Max Size"
+    ],
+    "answer": [0, 1, 3],
+    "explain": "首包裁剪是最直接的手段，把非启动必需资源移到远端或按需下载能显著减小安装包。未引用资源、冗余 Shader、未使用的引擎模块和托管代码都可以通过构建报告与裁剪选项去掉。PCM WAV 体积巨大，长音频应使用 Vorbis/MP3 并考虑流式加载，短音效可用 ADPCM，这才是正确做法。图集合并与平台压缩格式同时影响包体和运行内存。追问：怎么量化优化效果，Build Report 里重点看什么？",
+    "tags": ["包体优化", "首包裁剪", "图集", "音频压缩"]
+  },
+  {
+    "id": "asset-15",
+    "cat": "asset",
+    "level": "进阶",
+    "type": "single",
+    "q": "玩家反复进出战斗场景后，Profiler 显示 Texture 与 AssetBundle 内存持续上涨，最可能的原因和排查方向是？",
+    "options": [
+      "Unity 存在内存泄漏 bug，只能升级引擎或重启进程",
+      "加载与释放没有配对：AB 或 Addressables handle 未 Release、实例未 Destroy、静态字段/事件/协程仍持有引用；用 Memory Profiler 对比两次快照定位未释放对象",
+      "一定是 GC 没有触发，手动调用 GC.Collect 就能解决",
+      "是图集太大，把图集全部拆小即可"
+    ],
+    "answer": [1],
+    "explain": "引用计数型资源框架里，只要还有一处没有 Release，计数就不会归零，bundle 和 asset 都无法卸载，表现为每次进战斗都涨一截。除了 handle，静态字段、事件订阅、闭包和协程也会长期持有 UnityEngine.Object 引用。GC.Collect 无法回收仍被引用的对象，所以手动 GC 通常没用。正确做法是用 Memory Profiler 抓取进出场景前后的快照做 diff，再顺着引用链找到持有者。追问：如何用加载作用域（scope）从架构上避免漏 Release？",
+    "tags": ["引用计数", "内存泄漏", "Memory Profiler", "资源释放"]
+  },
+  {
+    "id": "asset-16",
+    "cat": "asset",
+    "level": "高级",
+    "type": "single",
+    "q": "HybridCLR 能在 IL2CPP 下实现 C# 代码热更，其核心原理是？",
+    "options": [
+      "把 C# 逻辑翻译成 Lua 脚本执行",
+      "扩展 IL2CPP 运行时，让热更程序集以解释执行方式运行，并补充 AOT 泛型元数据，使热更 DLL 中的类型和泛型实例可用",
+      "在 iOS 上动态生成机器码实现 JIT",
+      "把热更代码编译成 ScriptableObject 资源加载"
+    ],
+    "answer": [1],
+    "explain": "iOS 禁止 JIT，IL2CPP 又是全 AOT，所以不能像 Mono 那样 Assembly.Load 后即时编译。HybridCLR 给 IL2CPP 运行时加了一个 IL 解释器，热更 DLL 以解释方式执行，同时通过补充 AOT 泛型元数据解决热更代码引用未在 AOT 中实例化的泛型时报错。xLua/toLua 走 Lua 绑定路线，ILRuntime 是独立的 IL 解释器加 CLR 重定向，三者原理和生态不同。追问：AOT 泛型缺失具体在什么情况下报错，补充元数据的流程是怎样的？",
+    "tags": ["HybridCLR", "IL2CPP", "AOT泛型", "代码热更"]
+  },
+  {
+    "id": "asset-17",
+    "cat": "asset",
+    "level": "高级",
+    "type": "single",
+    "q": "关于 iOS 平台的代码热更，下列说法正确的是？",
+    "options": [
+      "iOS 允许 JIT，所以可以直接用 Assembly.Load 加载新 DLL 并执行",
+      "iOS 禁止 JIT、IL2CPP 全 AOT，不能动态加载并即时编译新代码；只能采用解释执行方案（HybridCLR/ILRuntime/xLua）或只做资源热更，同时要评估审核合规性",
+      "只要把 DLL 打进 AssetBundle，iOS 就能像 Android Mono 一样直接加载执行",
+      "IL2CPP 支持运行时反射创建任意泛型类型，因此不存在 AOT 限制"
+    ],
+    "answer": [1],
+    "explain": "IL2CPP 下没有 JIT，Assembly.Load 加载的程序集无法被编译执行，动态程序集也基本不可用。所以代码热更只能靠解释器方案，把热更逻辑以 IL 或 Lua 的形式解释执行，代价是性能低于原生 AOT，且要处理 AOT 泛型与代码裁剪（link.xml）问题。纯资源热更不涉及执行新代码，没有这层限制。审核层面对动态下发可执行代码有额外要求，需要结合发行地区评估。追问：Android 上 Mono 与 IL2CPP 的热更能力差异在哪里？",
+    "tags": ["iOS", "IL2CPP", "代码热更", "AOT"]
+  },
+  {
+    "id": "asset-18",
+    "cat": "asset",
+    "level": "高级",
+    "type": "multi",
+    "q": "设计一个资源热更下载器，以下哪些是必要或推荐的做法？",
+    "options": [
+      "先拉取文件清单，按文件粒度做差异比对，只下载有变化的文件",
+      "支持断点续传（HTTP Range 加记录本地已下载偏移）、失败重试与超时、并发数与限速控制",
+      "下载完成后校验大小和 MD5/SHA1，失败重下；先写临时文件再原子替换，避免产生半包",
+      "把所有文件打成一个超大 zip，一次性下载完再整体解压，且不做校验"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "文件级差异能把更新流量降到最小，是热更的基本盘。断点续传依赖服务端支持 Range 请求，客户端要记录偏移并在重试时续传；并发与限速则避免打满玩家带宽、影响游戏内网络。校验和原子替换保证不会出现下载到一半崩溃、本地资源损坏的情况，版本文件最后更新才能保持一致。大 zip 无法增量更新，失败代价高，不校验则可能把 CDN 错误页当成资源写盘。追问：边下边玩、下载优先级和 CDN 多域名容灾怎么设计？",
+    "tags": ["热更新", "断点续传", "下载器", "CDN"]
+  },
+  {
+    "id": "asset-19",
+    "cat": "asset",
+    "level": "高级",
+    "type": "judge",
+    "q": "代码热更和资源热更能互相替代：只要资源可以热更，就不需要代码热更。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "资源热更更新的是 AssetBundle/Addressables 里的 Prefab、贴图、配置和数值，它无法改变已经编译进安装包的 C# 逻辑。代码热更需要解释执行方案（HybridCLR/ILRuntime/xLua）才能下发并执行新逻辑，两者解决的问题不同，通常配合使用：策划数值和活动配置走资源热更，紧急逻辑修复走代码热更。代码热更还有平台限制（iOS 审核、AOT 泛型）和性能成本，不能无脑全量使用。追问：哪些逻辑适合放 Lua，哪些必须留在 C#？",
+    "tags": ["代码热更", "资源热更", "xLua", "发布流程"]
+  },
+  {
+    "id": "asset-20",
+    "cat": "asset",
+    "level": "高级",
+    "type": "single",
+    "q": "关于多平台打包以及 Editor 与真机的资源路径差异，下列说法正确的是？",
+    "options": [
+      "Editor 下可以用 AssetDatabase.LoadAssetAtPath 读取任意资源，真机没有 AssetDatabase，必须走 AssetBundle/Addressables 或 Resources",
+      "AssetBundle 与平台无关，Windows 打出来的包可以直接给 Android 用",
+      "StreamingAssets 在所有平台都能用 File.ReadAllBytes 直接读取",
+      "persistentDataPath 在 Editor 下就是项目的 Assets 目录"
+    ],
+    "answer": [0],
+    "explain": "AssetDatabase 只在 Editor 可用，所以仅在编辑器里直接读资源的代码到真机必然失效，正式流程要么走 AB/Addressables，要么把少量资源放 Resources。AB 与平台强相关：纹理压缩格式、Shader 变体、字节序都不同，必须按平台分别打包并维护各自的清单。Android 的 StreamingAssets 在 apk 内，只能用 UnityWebRequest 读取；persistentDataPath 在 Editor 下是系统按公司名/产品名生成的目录，不是 Assets。追问：多平台一键打包时，宏定义、资源变体和清单隔离怎么做？",
+    "tags": ["多平台打包", "AssetDatabase", "StreamingAssets", "persistentDataPath"]
+  }
+]

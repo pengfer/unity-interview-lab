@@ -1,0 +1,243 @@
+[
+  {
+    "id": "anim-01",
+    "cat": "anim",
+    "level": "基础",
+    "type": "single",
+    "q": "关于 Animator 与 Legacy Animation（Animation 组件）的区别，下列说法正确的是？",
+    "options": [
+      "Legacy Animation 同样支持 Animator Controller 的状态机与过渡",
+      "Animator 基于 Mecanim 状态机，支持过渡、混合树、动画层与 Avatar；Legacy Animation 直接播放 AnimationClip，逻辑简单但没有状态机能力",
+      "Animator 只能播放 Humanoid 动画，Generic 动画必须用 Legacy",
+      "Legacy Animation 的性能一定比 Animator 差"
+    ],
+    "answer": [1],
+    "explain": "Animator 的核心是 Mecanim 的控制器、过渡、Blend Tree、Layer/Avatar Mask 和重定向能力；Legacy 只是 Animation.Play(clip) 的旧系统，没有状态机，但实现简单、开销可控。Animator 对 Humanoid 和 Generic 都支持，所以 C 错；在极简单场景下 Legacy 反而更轻，D 的「一定」不成立。追问：为什么新项目不再用 Legacy、两者混用会不会争夺同一骨骼。",
+    "tags": ["Animator", "Legacy Animation", "Mecanim"]
+  },
+  {
+    "id": "anim-02",
+    "cat": "anim",
+    "level": "基础",
+    "type": "single",
+    "q": "一个「待机→跑步」的过渡关闭了 Has Exit Time，只设置一个条件 isRun = true，下列说法正确的是？",
+    "options": [
+      "必须等当前状态播放完才能切换",
+      "条件满足后下一帧就会开始过渡，混合时长由 Transition Duration 控制",
+      "Has Exit Time 只对 Any State 的过渡生效",
+      "Bool 参数必须在代码里每帧 SetBool，设为 true 后不会保持"
+    ],
+    "answer": [1],
+    "explain": "Has Exit Time 关闭后过渡只由条件驱动，条件满足即开始混合，混合时长由 Transition Duration 与过渡曲线决定。Bool 是持续型参数，SetBool(true) 后会一直保持，直到被显式改回 false。Has Exit Time 对普通过渡同样有效，用于「播完再切」，并非 Any State 专属。追问：Interruption Source 与 Ordered Interruption 的作用、Any State 过渡为什么容易自杀式循环。",
+    "tags": ["Animator", "状态机", "过渡"]
+  },
+  {
+    "id": "anim-03",
+    "cat": "anim",
+    "level": "基础",
+    "type": "single",
+    "q": "角色有 idle、walk、run 三个移动动画，希望用一个速度参数连续平滑混合，最合适的做法是？",
+    "options": [
+      "建三个状态，用三个 Trigger 手动切换",
+      "用一个 1D Blend Tree，把 Speed 参数作为横轴，三个 Clip 按阈值分布，Threshold 决定各自动画的生效区间",
+      "挂三个 Animator 组件分别播放",
+      "把三个动画放进同一个状态，Unity 会自动按速度挑选"
+    ],
+    "answer": [1],
+    "explain": "1D Blend Tree 用单个参数在多个 Clip 之间按 Threshold 加权混合，适合速度到移动动画这种一维映射；2D Blend Tree 用于方向加速度这类二维输入。多状态加 Trigger 只能硬切，做不出连续混合；一个状态只能放一个 Motion，除非它就是 Blend Tree。追问：2D Freeform Cartesian 与 Directional 的差别、Compute Thresholds 按速度自动排布阈值。",
+    "tags": ["Blend Tree", "混合树", "Animator 参数"]
+  },
+  {
+    "id": "anim-04",
+    "cat": "anim",
+    "level": "基础",
+    "type": "single",
+    "q": "代码里 animator.Play(\"Attack\")、animator.CrossFade(\"Attack\", 0.1f)、animator.SetTrigger(\"attack\") 的区别，描述正确的是？",
+    "options": [
+      "三者完全等价，只是写法不同",
+      "Play 立即切换、默认无混合；CrossFade 在给定时长内从当前状态混合到目标状态；SetTrigger 只设置参数，是否切换由状态机里的过渡条件决定",
+      "SetTrigger 会直接播放名为 attack 的动画",
+      "CrossFade 只能作用于 Layer 0"
+    ],
+    "answer": [1],
+    "explain": "Play 是硬切，还可以指定 normalizedTime 从某个时间点开始；CrossFade 要求目标状态存在，并在给定时间内做权重混合，适合动作衔接；SetTrigger 只改参数，真正的切换取决于 Transition，状态机里没连线就不会播放。CrossFade 有 layer 参数，可以作用在任意层，不限于 Layer 0。追问：CrossFade 与 CrossFadeInFixedTime 的差别、什么时候用 Trigger 而不是 Bool。",
+    "tags": ["CrossFade", "Play", "SetTrigger"]
+  },
+  {
+    "id": "anim-05",
+    "cat": "anim",
+    "level": "基础",
+    "type": "judge",
+    "q": "Animation Event 绑定在 AnimationClip 上，运行时在指定时间点调用挂有该 Animator 的 GameObject 上的同名方法（参数需匹配），因此换一个角色复用同一 Clip 时要确认目标脚本是否存在。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "事件是 Clip 资源的一部分，按时间点触发，接收者是播放该 Animator 的 GameObject 上的组件；如果复用 Clip 的角色上没有对应脚本或方法签名不匹配，会报找不到接收者的警告，事件静默失效。事件也不适合放业务重逻辑，因为它受 Clip 长度变化、压缩、过渡打断影响，可能被跳过或重复触发。追问：过渡期间事件被跳过怎么处理、StateMachineBehaviour 能否作为替代。",
+    "tags": ["Animation Event", "动画事件", "AnimationClip"]
+  },
+  {
+    "id": "anim-06",
+    "cat": "anim",
+    "level": "进阶",
+    "type": "single",
+    "q": "需要「下半身跑步、上半身举枪瞄准」同时生效，正确做法是？",
+    "options": [
+      "挂两个 Animator 组件，一个播跑步一个播瞄准",
+      "在 Animator 里新增一个 Layer，Weight 设为 1，Avatar Mask 只勾选上半身骨骼，Blending 按需求用 Override 或 Additive",
+      "把跑步和瞄准做成同一个 Blend Tree，用同一个参数混合",
+      "用 Animator.Play 在两个状态之间每帧来回切换"
+    ],
+    "answer": [1],
+    "explain": "动画层让不同层同时驱动同一套骨骼，Avatar Mask 限定该层影响哪些骨骼，Layer Weight 控制整体强度；Override 会用上层姿态覆盖下层，Additive 则在下层姿态上叠加偏移。Blend Tree 只在同层、同一套骨骼上做加权混合，无法只驱动上半身。两个 Animator 会互相争夺同一批 Transform，结果不可控。追问：Additive 层的参考姿态从哪来、Mask 与 Layer Weight 同时为 1 时的覆盖关系。",
+    "tags": ["Avatar Mask", "动画层", "Layer Weight"]
+  },
+  {
+    "id": "anim-07",
+    "cat": "anim",
+    "level": "进阶",
+    "type": "single",
+    "q": "关于 Root Motion，下列说法正确的是？",
+    "options": [
+      "开启 Apply Root Motion 后角色位移由动画曲线驱动，此时代码里再调 CharacterController.Move 会造成位移叠加或抖动",
+      "Root Motion 只对 Humanoid 生效，Generic 永远没有",
+      "Root Motion 会把所有骨骼的位移都应用到 GameObject 上",
+      "Root Motion 开启后就不再需要 NavMesh 了"
+    ],
+    "answer": [0],
+    "explain": "Root Motion 把动画中根骨骼的位移和旋转提取出来应用到角色根节点，适合靠动画驱动的位移，如翻滚、处决、攀爬；如果同时用 CharacterController 或 Rigidbody 再推一次，两套位移会叠加或互相抵消。Generic 也能有 Root Motion，只是需要在导入时正确设置 Root Transform，所以 B 错。它只处理根骨骼运动，不等于全部骨骼位移，寻路依然需要 NavMesh。追问：OnAnimatorMove 里如何自定义 root motion 的应用、Root Motion 与网络同步怎么处理。",
+    "tags": ["Root Motion", "Apply Root Motion", "CharacterController"]
+  },
+  {
+    "id": "anim-08",
+    "cat": "anim",
+    "level": "进阶",
+    "type": "multi",
+    "q": "场景里有 200 个 NPC 各带一个 Animator，Profiler 中 Animators.Update 占比很高，下列优化有效的有？",
+    "options": [
+      "把 Culling Mode 设为 Based on Renderers（Cull Update Transforms），屏幕外时停止 Transform 写入",
+      "开启 Optimize Game Objects 减少骨骼 Transform 层级与更新开销，并把需要挂点的骨骼保留为 Extra Transforms",
+      "减少 Animator 参数数量，并用 Animator.StringToHash 代替字符串访问",
+      "为每个 NPC 复制一份 Controller 并各自改参数，避免互相影响"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "动画开销主要来自骨骼 Transform 写入和状态机求值：剔除不可见角色的更新、用 Optimize Game Objects 去掉多余 Transform、减少参数与避免字符串哈希，都能直接降低成本。每个 NPC 复制 Controller 只会增加内存和状态机实例开销，参数本来就是每个 Animator 实例独立的，并不会互相影响，所以 D 无效。追问：Culling Mode 的三个档位区别、GPU Skinning 与 Job/Burst 化的动画方案各自适合什么场景。",
+    "tags": ["Animator 性能", "Culling Mode", "Optimize Game Objects"]
+  },
+  {
+    "id": "anim-09",
+    "cat": "anim",
+    "level": "进阶",
+    "type": "single",
+    "q": "要把同一套跑步走路动画复用到体型不同、骨骼命名也不一致的角色上，应该选？",
+    "options": [
+      "Generic，因为 Generic 支持任意骨骼映射",
+      "Humanoid，通过 Avatar 把实际骨骼映射到标准人形骨架，动画可以在不同角色之间重定向",
+      "Legacy Animation，它的重定向能力最强",
+      "只能给每个角色单独做一套动画"
+    ],
+    "answer": [1],
+    "explain": "Humanoid 用 Avatar 建立「标准人形骨骼到实际骨骼」的映射，Clip 存的是归一化到肌肉空间的数据，因此能跨角色重定向，代价是映射误差与额外的 CPU 求值开销。Generic 绑定的是具体骨骼路径，换角色通常不能直接复用；Legacy 根本没有重定向能力。追问：Avatar 配置错误（骨骼没变绿）会导致什么、肌肉限制对极端动作表现的影响。",
+    "tags": ["Humanoid", "Generic", "Avatar 重定向"]
+  },
+  {
+    "id": "anim-10",
+    "cat": "anim",
+    "level": "进阶",
+    "type": "multi",
+    "q": "关于 Playable API 与 Timeline，下列说法正确的有？",
+    "options": [
+      "Playable Graph 可以在运行时用代码组合 AnimationClipPlayable、Mixer、Layer 等节点，适合程序化动画与技能编排",
+      "Timeline 基于 Playable，适合做剧情与过场的时间轴编排，可以混合动画、音频、激活轨道",
+      "Playable 能绕过 Animator Controller 直接播放 Clip，因此可以做到比状态机更细粒度的混合控制",
+      "Timeline 只能用于 Humanoid 角色，Generic 动画无法播放"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "Playable 是底层的可播放图，AnimationClipPlayable 与 Mixer 可以自由组树，Timeline 是它上层的编辑器工具，用于过场与序列编排，所以 A、B 都对。直接播放 Clip 不经过状态机，适合技能与程序化动画，但权重、生命周期和打断都要自己管理。Timeline 的 Animation Track 支持 Generic、Humanoid 以及普通 Transform 轨道，不限于 Humanoid。追问：Playable 与 Animator 同时驱动同一骨骼时谁覆盖谁、如何用 Playable 做动作融合与分层。",
+    "tags": ["Playable API", "Timeline", "AnimationClipPlayable"]
+  },
+  {
+    "id": "anim-11",
+    "cat": "anim",
+    "level": "进阶",
+    "type": "judge",
+    "q": "把 AnimationClip 的压缩方式设为 Optimal 会做关键帧删减与量化，能显著降低内存和求值开销，但对高精度位移与旋转（例如 Root Motion 驱动的位移）可能产生可见误差，需要按 Clip 调整容差或改用更高精度。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "Optimal 通过删减线性区间内的冗余关键帧并量化数值来压缩，容差越大压缩率越高、误差也越大；旋转通常按四元数量化、位移按浮点压缩，误差累积到 Root Motion 上会表现为漂移或滑步。对位移敏感的 Clip 可以单独提高精度，或者改用 Generic 加自定义曲线。追问：动画压缩与导入设置的 Resample 的关系、压缩后为什么会出现「脚底打滑」。",
+    "tags": ["动画压缩", "Keyframe Reduction", "内存"]
+  },
+  {
+    "id": "anim-12",
+    "cat": "anim",
+    "level": "进阶",
+    "type": "single",
+    "q": "做 UI 弹窗的缩放弹出和数字滚动，选择 DOTween 而不是 Animator 的主要理由是？",
+    "options": [
+      "DOTween 能用代码精确控制时长、缓动和回调，适合运行时参数化、可打断的 UI 动效，也不占用 Animator 状态机与 Clip 资源",
+      "DOTween 的性能一定高于 Animator，所以角色动画也应该全部改用它",
+      "DOTween 只能作用于 UI，不能移动 3D 物体",
+      "Animator 无法做缩放动画"
+    ],
+    "answer": [0],
+    "explain": "Tween 库擅长一次性、代码参数化、可链式调用也可随时 Kill 的补间动画，UI 弹窗、数字滚动、简单位移这类需求用它更快也更灵活，而且不需要美术做 Clip 和状态机。它每帧在 C# 侧插值，骨骼动画与状态机混合仍应交给 Animator，性能上也不是无脑更优。DOTween 可以作用于 Transform、材质、相机等任意属性，不限于 UI。追问：SetUpdate(true) 与 timeScale 的关系、大量 Tween 的对象池与性能。",
+    "tags": ["DOTween", "UI 动画", "Tween"]
+  },
+  {
+    "id": "anim-13",
+    "cat": "anim",
+    "level": "高级",
+    "type": "single",
+    "q": "需要让角色双脚贴合高低不平的地面，用 OnAnimatorIK 实现的核心步骤是？",
+    "options": [
+      "在 Update 里直接修改脚部骨骼的 localPosition",
+      "开启 Animator 的 IK Pass，在 OnAnimatorIK 中向下 Raycast 找到地面，用 SetIKPosition 配合 AvatarIKGoal.LeftFoot 设置目标，并给 SetIKPositionWeight、SetIKRotationWeight 赋权重，必要时用 SetIKHintPosition 控制膝盖朝向",
+      "把 Avatar 改成 Generic 就能自动贴地",
+      "只调用 SetLookAtWeight，脚部会自动对齐"
+    ],
+    "answer": [1],
+    "explain": "打开 IK Pass 后 Unity 会在动画求值之后回调 OnAnimatorIK，此时写入的 IK 目标才不会被当帧动画覆盖；权重从 0 平滑过渡到 1 可以避免瞬移，Hint 用来固定膝盖或肘部朝向，防止反关节。直接在 Update 里改骨骼 localPosition 会被动画写回覆盖。追问：IK 与 Root Motion 的执行顺序、两段式 IK（先算脚再下沉骨盆）怎么实现、多个 IK 目标的优先级。",
+    "tags": ["IK", "OnAnimatorIK", "AvatarIKGoal"]
+  },
+  {
+    "id": "anim-14",
+    "cat": "anim",
+    "level": "高级",
+    "type": "multi",
+    "q": "实现「受击后被物理击退并倒地」，下列方案合理的有？",
+    "options": [
+      "受击瞬间用 Additive 层叠加受击姿态，同时由代码施加冲量，位移交给 Rigidbody，动画层只负责姿态",
+      "把 Animator 的 Update Mode 设为 Animate Physics，或在 OnAnimatorMove 中把 Root Motion 位移交给 Rigidbody.MovePosition，避免动画与物理各推一套位移",
+      "倒地阶段切换到 Ragdoll 让物理接管骨骼，起身时用姿态匹配或 IK 过渡回动画",
+      "让 Animator 的 Root Motion 和 Rigidbody 各自驱动位移，效果会更自然"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "动画与物理混合的关键是「位移只能有一个权威来源」：要么 Root Motion 驱动、物理只负责碰撞，要么物理驱动、动画只负责姿态。Additive 层可以在不打断基础移动动画的前提下叠加受击反应；Animate Physics 让动画与物理步进对齐，OnAnimatorMove 可以自定义位移的应用方式；Ragdoll 适合倒地，起身用姿态匹配或 IK 过渡回动画。D 会造成位移叠加和抖动。追问：Ragdoll 与 Animator 切换时如何避免瞬移和穿模、受击动画如何做打断与优先级。",
+    "tags": ["物理动画", "Additive", "Ragdoll"]
+  },
+  {
+    "id": "anim-15",
+    "cat": "anim",
+    "level": "高级",
+    "type": "single",
+    "q": "用序列帧做一个 2D 技能特效（30 帧、512x512、带 Alpha），下列做法最合理的是？",
+    "options": [
+      "把 30 张图打进图集，用 SpriteRenderer 配合 Animation Clip 或代码切换 Sprite，并控制图集尺寸与透明区域带来的 Overdraw",
+      "为每一帧创建一个 GameObject，运行时切换激活状态",
+      "把 30 张图合成一张 8K 贴图用 UV 偏移采样，永远比图集更好",
+      "序列帧只能用 Legacy Animation 播放"
+    ],
+    "answer": [0],
+    "explain": "序列帧的主要成本是显存与填充率：打图集能减少材质切换与 Draw Call，SpriteRenderer 配合 Animation 或代码切 Sprite 都能播；带 Alpha 的大图 Overdraw 明显，需要裁掉透明边、控制同屏数量。逐帧 GameObject 会带来大量激活与销毁开销，8K 贴图在移动端超出常见纹理尺寸上限且浪费显存。追问：帧动画与骨骼动画在表现力和内存上的取舍、图集打包与 Sprite Atlas 的变体管理。",
+    "tags": ["序列帧", "Sprite", "图集"]
+  },
+  {
+    "id": "anim-16",
+    "cat": "anim",
+    "level": "高级",
+    "type": "judge",
+    "q": "Animator 的 Trigger 参数被某个过渡消费后会自动复位；如果同一帧内连续 SetTrigger 两次同名 Trigger，第二次会覆盖第一次，不会排队播放两次。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "Trigger 本质是一个「被消费即清零」的 Bool，同一帧多次设置只会留下一个待消费标记，所以连招和连续攻击不能靠重复 SetTrigger 实现，需要计数参数、动作队列，或者直接 Play/CrossFade。另外如果状态机里没有任何过渡消费该 Trigger，它会一直保持为真，导致下一次进入状态时立刻触发。追问：如何用 int 参数加过渡做连击计数、ResetTrigger 的使用场景、Trigger 与 Bool 在打断逻辑上的差异。",
+    "tags": ["SetTrigger", "Animator 参数", "连招"]
+  }
+]

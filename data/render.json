@@ -1,0 +1,351 @@
+[
+  {
+    "id": "render-01",
+    "cat": "render",
+    "level": "基础",
+    "type": "single",
+    "q": "团队要做一个移动端 3D 卡牌项目，要求移动端性能可接受、有官方长期维护、后续能接自定义后处理。下列关于渲染管线选择的说法，哪个最合适？",
+    "options": [
+      "选 Built-in，因为它 Shader 写法最简单，而且官方仍在持续为它加入新渲染特性",
+      "选 URP，它是面向多平台的 SRP 管线，移动端有官方优化与支持，后处理通过 Volume 框架扩展",
+      "选 HDRP，它向下兼容移动端，可以一套材质同时发布手机和 PC",
+      "三条管线可以随意混用，只要在 Graphics Settings 里切换一下即可"
+    ],
+    "answer": [1],
+    "explain": "Built-in 已进入维护状态，新特性基本只进 SRP；HDRP 面向高端主机与 PC，不支持移动端，材质与 Shader 也不通用；切换管线不是改一个开关，材质、Shader、后处理、光照方案都要迁移，因此 A、C、D 都不对。URP 是移动端的主流选择，后处理用 Volume 加 Volume Profile 的 Override 来配。常见追问：URP 与 HDRP 的渲染路径差异、项目中途迁管线的成本、URP 的 Forward+ 有什么用。",
+    "tags": ["URP", "HDRP", "渲染管线"]
+  },
+  {
+    "id": "render-02",
+    "cat": "render",
+    "level": "基础",
+    "type": "single",
+    "q": "一个物体从被提交渲染到出现在屏幕上，CPU 与 GPU 大致经历的阶段顺序是？",
+    "options": [
+      "应用阶段 → 几何阶段 → 光栅化阶段 → 逐片元处理",
+      "几何阶段 → 应用阶段 → 逐片元处理 → 光栅化阶段",
+      "应用阶段 → 光栅化阶段 → 几何阶段 → 逐片元处理",
+      "应用阶段 → 逐片元处理 → 几何阶段 → 光栅化阶段"
+    ],
+    "answer": [0],
+    "explain": "应用阶段由 CPU 完成可见性裁剪、排序、设置渲染状态并输出 Draw Call；几何阶段在 GPU 上做顶点变换、投影、裁剪和屏幕映射；光栅化把图元转成片元；最后逐片元做纹理采样、光照计算和混合。其余选项都错在把光栅化提到几何阶段之前，或把逐片元处理放在了顶点处理之前。追问方向：哪个阶段更容易成为瓶颈、Early-Z 在这个流程里发生在哪一步。",
+    "tags": ["渲染流程", "光栅化", "渲染管线"]
+  },
+  {
+    "id": "render-03",
+    "cat": "render",
+    "level": "基础",
+    "type": "single",
+    "q": "面试官问「Draw Call 到底是什么」，下面哪个回答最准确？",
+    "options": [
+      "就是一次 Mesh 的顶点数量统计",
+      "CPU 通过图形 API 提交的一次绘制命令，包含设置渲染状态与发起绘制，真正的开销大头在提交前的状态校验与切换",
+      "GPU 每帧实际执行的像素数量",
+      "一个材质球对应一个 Draw Call，和 Mesh 数量无关"
+    ],
+    "answer": [1],
+    "explain": "Draw Call 是 CPU 侧的一次绘制提交，顶点数、像素数分别是几何成本与填充成本，不是 Draw Call 的定义。材质与 Mesh 也不是一一对应：合批会把多个 Mesh 合成一次提交，而一个材质若用了不同 Mesh 仍可能是多次提交。真正贵的是每次提交前后的状态切换与校验，所以 Draw Call 多时容易 CPU Bound，移动端尤其敏感。追问：合批、SRP Batcher、GPU Instancing 分别从哪个角度降低这部分成本。",
+    "tags": ["Draw Call", "渲染状态", "CPU 开销"]
+  },
+  {
+    "id": "render-04",
+    "cat": "render",
+    "level": "基础",
+    "type": "single",
+    "q": "关于 Mipmap，下列说法正确的是？",
+    "options": [
+      "开启 Mipmap 会增加约三分之一的显存，但能减少远处纹理的采样闪烁并降低纹理带宽",
+      "Mipmap 只对 UI 有用，3D 模型上开启会明显变糊，应该全部关掉",
+      "Mipmap 等级由导入设置里的 Max Size 固定，与相机距离无关",
+      "开启 Mipmap 可以减少 Draw Call"
+    ],
+    "answer": [0],
+    "explain": "Mipmap 生成一串逐级减半的纹理，显存约为原图的 4/3，即多出约 33%。当远处一个像素覆盖多个纹素时，GPU 采样更低级别，既能抑制闪烁（走样）也能减少纹理缓存缺失带来的带宽压力。它不改变 Draw Call，等级由 GPU 依据 UV 导数自动选择；UI 确实常关掉 Mipmap 省内存，但不能推广到所有 3D 场景。追问：各向异性过滤解决什么问题、Mipmap 与纹理流式加载的关系。",
+    "tags": ["Mipmap", "纹理", "显存"]
+  },
+  {
+    "id": "render-05",
+    "cat": "render",
+    "level": "基础",
+    "type": "single",
+    "q": "同一套贴图要发布 Android（Adreno/Mali 为主）和 iOS，压缩格式的合理策略是？",
+    "options": [
+      "统一用 RGBA32，画质最好，包体大一点无所谓",
+      "Android 用 ETC2 或 ASTC，iOS 用 ASTC 或 PVRTC，在导入设置里按平台分别配置压缩格式",
+      "所有平台都用 PVRTC，因为它是通用格式",
+      "压缩格式只影响包体大小，不影响运行时显存与采样带宽"
+    ],
+    "answer": [1],
+    "explain": "ASTC 是当前跨平台的主力格式，ETC2 是 Android/GLES3 的通用兜底，PVRTC 主要适用于 iOS 的 PowerVR 系 GPU，并非通用格式。按平台覆盖导入设置（Platform Override）是标准做法，可以兼顾兼容性与画质。RGBA32 是未压缩，运行时显存和带宽是压缩格式的数倍；压缩格式同时决定显存占用与采样效率，不只是包体。追问：ASTC 4x4 与 6x6 的取舍、压缩格式不支持时的回退策略。",
+    "tags": ["ASTC", "ETC2", "纹理压缩"]
+  },
+  {
+    "id": "render-06",
+    "cat": "render",
+    "level": "基础",
+    "type": "single",
+    "q": "做第一人称射击时，希望手里的武器不穿墙、也不受主相机后处理影响，常见做法是？",
+    "options": [
+      "把武器放到主相机的近裁剪面之内",
+      "给武器单独一个 Layer，主相机的 Culling Mask 排除该 Layer，再用一个 Depth 更高、Clear Flags 为 Depth Only 的武器相机只渲染该 Layer",
+      "把武器 Shader 改成 ZTest Always，问题就解决了",
+      "把武器 Mesh 的 Bounds 放大，让 Frustum Culling 裁不掉它"
+    ],
+    "answer": [1],
+    "explain": "独立 Layer 加独立相机（Clear Flags 设为 Depth Only、Depth 高于主相机）是标准的多层相机方案，可以单独控制武器的光照、深度关系和后处理叠加。ZTest Always 会让武器永远盖住一切、自身遮挡也错乱；放大 Bounds 只影响视锥剔除，与穿插无关；移进近裁剪面只会被裁掉。追问：两个相机都开后处理时如何避免武器被 Bloom 二次污染、武器相机要不要单独调 FOV。",
+    "tags": ["Culling Mask", "多层相机", "Layer"]
+  },
+  {
+    "id": "render-07",
+    "cat": "render",
+    "level": "基础",
+    "type": "judge",
+    "q": "不透明物体按渲染队列从近到远绘制，透明物体按从远到近绘制，并且透明 Shader 通常要关闭 ZWrite。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "不透明物体开启 ZWrite，近处先画可以让后面被深度测试直接丢弃，对 Early-Z 友好；透明物体需要与背后已经画好的颜色做混合，必须从远到近画，并且一般不写深度，否则会挡住后面的透明物体。代价是透明物体之间只能靠 Queue 与排序，穿插时仍然会出错。追问：Alpha Test 与 Alpha Blend 在排序和 Early-Z 上的差别、如何用 Queue 手动控制渲染顺序。",
+    "tags": ["渲染队列", "ZWrite", "透明排序"]
+  },
+  {
+    "id": "render-08",
+    "cat": "render",
+    "level": "进阶",
+    "type": "multi",
+    "q": "关于 Unity 的几种合批与实例化方式，下列说法正确的有？",
+    "options": [
+      "Static Batching 在构建时把静态物体的网格合并，用更大内存换取更少提交，合批后的物体不能再移动",
+      "Dynamic Batching 有顶点数上限（约 300 顶点、900 顶点属性），超出的大网格会被放弃合批",
+      "SRP Batcher 不减少 Draw Call 数量，而是减少每次提交之间的状态切换开销，要求同一 Shader 变体且材质属性布局一致",
+      "GPU Instancing 只能用于完全相同的 Mesh 与 Material，不同实例的材质属性差异无法一次绘制"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "前三项分别对应静态合批的以内存换提交、动态合批的顶点上限、SRP Batcher 降状态切换而不降 DC 的本质。GPU Instancing 可以通过 MaterialPropertyBlock 或 instanced 属性传每实例数据，前提是 Shader 声明了对应属性并开启 GPU Instancing，所以 D 的绝对说法错误。另外 URP 下 Static Batching 依然可用，但它和 SRP Batcher 是两条不同的路径：静态合批后的网格往往不再享受逐材质 CBUFFER 复用，需要按项目实测选择。追问：为什么 SRP Batcher 与 GPU Instancing 的适用场景不同。",
+    "tags": ["Static Batching", "SRP Batcher", "GPU Instancing"]
+  },
+  {
+    "id": "render-09",
+    "cat": "render",
+    "level": "进阶",
+    "type": "single",
+    "q": "打包后发现 Shader 变体数量过万，包体和首次加载时间明显变大，最有效的处理方式是？",
+    "options": [
+      "把不必要的 multi_compile 改成 shader_feature，并用 Shader Variant Collection 或 IPreprocessShaders 只保留实际用到的组合",
+      "把 Shader 改写成 Surface Shader，变体会自动减少",
+      "关闭 Project Settings 里的 Graphics Jobs",
+      "把场景里的材质数量减少到 1 个"
+    ],
+    "answer": [0],
+    "explain": "multi_compile 会无条件编译所有关键字组合，shader_feature 只保留被材质引用的组合；再配合 Shader Variant Collection 记录运行时才会用到的组合，或者用 IPreprocessShaders 在构建时裁剪，是控制变体数量的标准手段。Surface Shader 只在 Built-in 生效且自身也会生成大量变体，URP 下根本不能用；Graphics Jobs 与变体无关；材质变少不等于关键字组合变少。追问：如何统计某个 Shader 的变体数量、变体在运行时缺失会表现成什么。",
+    "tags": ["Shader 变体", "shader_feature", "Variant Collection"]
+  },
+  {
+    "id": "render-10",
+    "cat": "render",
+    "level": "进阶",
+    "type": "judge",
+    "q": "把 Built-in 项目迁移到 URP 时，原有的 Surface Shader 可以直接继续使用，URP 会在内部把它转换成 HLSL。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "Surface Shader 是 Built-in 独有的代码生成机制，编译时会展开成多个 Pass 并接入内置光照函数，URP 没有这套生成流程。URP 的 Shader 必须手写顶点/片元，包含 URP 的 HLSL 库（Core.hlsl、Lighting.hlsl 等），并按 UniversalPipeline 的 SubShader 标签组织。迁移时通常重写为 URP 的 Lit/Unlit 或自定义 Pass，而不是指望自动转换。追问：URP 下怎么拿主光方向、阴影坐标和额外光。",
+    "tags": ["Surface Shader", "URP", "Shader 迁移"]
+  },
+  {
+    "id": "render-11",
+    "cat": "render",
+    "level": "进阶",
+    "type": "single",
+    "q": "关于前向渲染与延迟渲染，下列说法正确的是？",
+    "options": [
+      "延迟渲染把几何信息写入 G-Buffer，光照在屏幕空间统一计算，适合大量实时光源，但透明物体仍要走前向",
+      "延迟渲染在所有平台上都比前向快，移动端应优先选延迟",
+      "前向渲染每个物体只计算一次光照，光源数量不会带来额外成本",
+      "延迟渲染不支持阴影，所以只能用光照贴图替代"
+    ],
+    "answer": [0],
+    "explain": "延迟渲染先用 MRT 把 albedo、法线、深度等写进 G-Buffer，再对光源做屏幕空间的光照计算，光源数量增加时光照成本与场景几何复杂度解耦，代价是带宽大、对 MSAA 与透明不友好，透明物体只能退回前向。前向渲染的光照成本随受影响光源数线性增长，所以 C 错。移动端很多 GPU 带宽有限且不支持 MRT，因此 URP 默认前向，D 也与阴影实现无关。追问：URP 的 Forward+ 如何用分簇光照缓解前向的多光源成本。",
+    "tags": ["前向渲染", "延迟渲染", "G-Buffer"]
+  },
+  {
+    "id": "render-12",
+    "cat": "render",
+    "level": "进阶",
+    "type": "multi",
+    "q": "一个开放世界场景由「静态建筑 + 大量动态角色 + 金属盔甲」组成，下列光照与反射方案搭配合理的有？",
+    "options": [
+      "静态建筑用 Baked Lightmap，运行时基本没有实时光照开销",
+      "动态角色用 Light Probe 采样周围烘焙的间接光，让角色明暗与静态环境一致",
+      "金属盔甲用局部 Reflection Probe（或平面反射）提供环境反射，而不是只依赖天空盒",
+      "所有光源都设为 Realtime 并开启阴影，这样最真实，性能也最好"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "Lightmap 烘焙静态几何的直接光与间接光；Light Probe 把烘焙光照信息插值到动态物体上，解决角色比环境偏亮或偏暗的问题；Reflection Probe 提供局部环境的 cubemap，金属高光才不会只反射天空。全实时加实时阴影在开放世界里成本极高，通常用 Baked/Mixed 混合，因此 D 错。追问：Mixed 模式下 Shadowmask 与 Distance Shadowmask 的区别、Light Probe 的插值体积与漏光问题。",
+    "tags": ["Lightmap", "Light Probe", "Reflection Probe"]
+  },
+  {
+    "id": "render-13",
+    "cat": "render",
+    "level": "进阶",
+    "type": "single",
+    "q": "开放场景中远处角色的阴影出现明显锯齿，移动时还会闪烁，最直接有效的优化是？",
+    "options": [
+      "把 Shadow Distance 拉到覆盖整个场景",
+      "使用级联阴影（Cascades），按距离分配分辨率，并配合调整 Shadow Distance 与 Bias/Normal Bias",
+      "把阴影类型改成 Soft Shadows，锯齿就会消失",
+      "关闭 Receive Shadows，只保留投射"
+    ],
+    "answer": [1],
+    "explain": "级联阴影把视锥按距离切成几段，近处用高分辨率、远处用低分辨率，在有限 Shadow Map 尺寸下兼顾近景质量与远处覆盖；Bias/Normal Bias 用来同时压掉自阴影 acne 和 peter-panning。把 Shadow Distance 拉满会让远处每米分到的纹素更少，反而更糟；Soft Shadows 只是滤波，不解决分辨率不足带来的锯齿与闪烁。追问：Cascade 数量增加带来的 Draw Call 与带宽代价、为什么移动远方物体时阴影会跳变。",
+    "tags": ["Shadow Map", "级联阴影", "Bias"]
+  },
+  {
+    "id": "render-14",
+    "cat": "render",
+    "level": "进阶",
+    "type": "single",
+    "q": "在 URP 中给场景加 Bloom 并整体调色，正确的做法是？",
+    "options": [
+      "在相机上挂 Post Process Layer 组件，选择 Built-in 的 Post Process Profile",
+      "在场景里放一个 Global Volume 并指定 Volume Profile，添加 Bloom 与 Color Adjustments/Tonemapping 的 Override，同时确认相机勾选了 Post Processing",
+      "直接修改相机的 Background 颜色",
+      "把 Bloom 写进自定义 Shader 的片元里，每帧对每个物体各做一遍"
+    ],
+    "answer": [1],
+    "explain": "URP 的后处理由 Volume 框架驱动：Global 或局部 Volume 加 Volume Profile，再给 Profile 添加 Override（Bloom、Tonemapping、Color Adjustments 等），相机上必须启用 Post Processing。Post Process Layer 是 Built-in 的 Post Processing Stack v2 组件，URP 下不适用；逐物体做全屏模糊既不现实也无法正确叠加。追问：Volume 的 Priority 与 Blend Distance 如何决定混合、移动端 Bloom 的降采样与带宽成本。",
+    "tags": ["Volume", "Bloom", "Color Grading"]
+  },
+  {
+    "id": "render-15",
+    "cat": "render",
+    "level": "进阶",
+    "type": "multi",
+    "q": "下面是一段 URP 的 Unlit Shader 片段，关于它的结构，说法正确的有？",
+    "code": "Shader \"Custom/URPUnlit\"\n{\n    Properties { _BaseMap (\"Base Map\", 2D) = \"white\" {} }\n    SubShader\n    {\n        Tags { \"RenderPipeline\" = \"UniversalPipeline\" }\n        Pass\n        {\n            HLSLPROGRAM\n            #pragma vertex vert\n            #pragma fragment frag\n            #include \"Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl\"\n\n            TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);\n            CBUFFER_START(UnityPerMaterial)\n                float4 _BaseMap_ST;\n            CBUFFER_END\n\n            struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };\n            struct Varyings  { float4 positionHCS : SV_POSITION; float2 uv : TEXCOORD0; };\n\n            Varyings vert (Attributes IN)\n            {\n                Varyings OUT;\n                OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);\n                OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);\n                return OUT;\n            }\n\n            half4 frag (Varyings IN) : SV_Target\n            {\n                return SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);\n            }\n            ENDHLSL\n        }\n    }\n}",
+    "options": [
+      "Tags 中的 RenderPipeline = UniversalPipeline 让这个 SubShader 只在 URP 下被使用",
+      "CBUFFER_START(UnityPerMaterial) 里的属性会进逐材质常量缓冲，是 SRP Batcher 能合批的前提，布局必须与该 Shader 的所有 Pass 保持一致",
+      "TransformObjectToHClip 把模型空间坐标变换到齐次裁剪空间，本质上就是 MVP 变换的封装",
+      "URP 下必须使用 CGPROGRAM 而不是 HLSLPROGRAM，否则无法编译"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "URP 使用 HLSLPROGRAM 加 URP 的 HLSL 库，CGPROGRAM 是 Built-in 的写法，所以 D 正好说反了。RenderPipeline 标签用于管线过滤，避免 Shader 在错误管线里被使用；UnityPerMaterial 的 CBUFFER 是 SRP Batcher 的合批前提，同一 Shader 所有 Pass 的布局必须一致，否则会被判定为不兼容。TransformObjectToHClip 内部就是 UNITY_MATRIX_MVP 的封装。追问：为什么 Sampler 要单独声明、把纹理 ST 放进 CBUFFER 的原因。",
+    "tags": ["URP Shader", "HLSL", "SRP Batcher"]
+  },
+  {
+    "id": "render-16",
+    "cat": "render",
+    "level": "进阶",
+    "type": "single",
+    "q": "手机上 UI 界面帧率偏低，Profiler 显示 GPU 时间高但 Draw Call 并不多，Frame Debugger 里同一片区域被反复绘制。最可能的原因是？",
+    "options": [
+      "Draw Call 太多，CPU 提交不过来",
+      "Overdraw 过高：多层半透明 UI 与粒子重叠，同一像素被重复着色，填充率成为瓶颈",
+      "纹理没有开 Mipmap",
+      "没有开启 GPU Instancing"
+    ],
+    "answer": [1],
+    "explain": "Overdraw 指同一像素在一帧内被多次写入，半透明 UI、粒子、全屏后处理叠加时填充率开销会急剧上升，典型表现是 GPU 时间高而 Draw Call 数量正常。优化手段包括合并图集、裁掉透明区域、减少全屏 Blit、控制粒子层数与同屏数量。Mipmap 影响纹理带宽与远处闪烁，Instancing 影响提交次数，都不是填充率问题的主因，何况 Draw Call 已经不高。追问：如何在 Scene 视图的 Overdraw 模式下定位、UI 的 Canvas 重建与 Overdraw 的关系。",
+    "tags": ["Overdraw", "填充率", "UI 性能"]
+  },
+  {
+    "id": "render-17",
+    "cat": "render",
+    "level": "进阶",
+    "type": "judge",
+    "q": "项目使用 Linear 色彩空间时，颜色纹理需要勾选 sRGB，而法线贴图、遮罩图、粗糙度等数据纹理应关闭 sRGB。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "颜色贴图存的是 sRGB 编码值，标记 sRGB 后 GPU 采样时会自动转到线性空间参与光照计算，最终输出再做一次编码；法线、粗糙度、遮罩是数据而不是颜色，若被当作 sRGB 转换会导致数值失真。Gamma 空间下不做这条转换，所以同一套贴图在两种空间下观感明显不同。追问：为什么切到 Linear 后 UI 颜色看起来变暗、HDR 与 Linear 是否必须一起开。",
+    "tags": ["Linear", "Gamma", "sRGB"]
+  },
+  {
+    "id": "render-18",
+    "cat": "render",
+    "level": "高级",
+    "type": "single",
+    "q": "Profiler 中主线程脚本耗时 8ms、Gfx 等待 14ms、GPU 时间 16ms，帧率约 55 FPS。最合理的判断与优化方向是？",
+    "options": [
+      "CPU Bound，优先减少 Draw Call 与脚本开销",
+      "GPU Bound，优先降低填充率、阴影、后处理和网格复杂度，同时确认是否被垂直同步或目标帧率限制",
+      "内存不足导致，优先压缩纹理",
+      "网络延迟导致，优先优化协议"
+    ],
+    "answer": [1],
+    "explain": "GPU 时间显著高于 CPU 且 Gfx 出现等待，说明 GPU 是瓶颈；此时继续砍 Draw Call 收益很小，应该用 Frame Debugger 定位是阴影、后处理还是 Overdraw 占了大头。55 FPS 也可能本身就是垂直同步或目标帧率限制的结果，要结合 Gfx.WaitForPresent 判断是真瓶颈还是被限帧。内存和网络问题不会直接表现为 GPU 时间长。追问：如何用 GPU Profiler 区分带宽瓶颈与 ALU 瓶颈、为什么要用 Development Build 取数据。",
+    "tags": ["CPU Bound", "GPU Bound", "Profiler"]
+  },
+  {
+    "id": "render-19",
+    "cat": "render",
+    "level": "高级",
+    "type": "single",
+    "q": "用 Frame Debugger 排查「某个物体没有被 SRP Batcher 合批」，下列思路正确的是？",
+    "options": [
+      "Frame Debugger 只看得到 Draw Call 数量，无法判断批处理方式",
+      "展开单个 Draw Call 查看其批次与 Batch Breaking 原因，常见原因是材质属性不在 UnityPerMaterial CBUFFER、使用了 MaterialPropertyBlock，或 Shader 未声明兼容 SRP Batcher",
+      "只要 Shader 名字相同就一定会合批，没合批一定是引擎 Bug",
+      "必须关闭 Frame Debugger 才能看到合批信息"
+    ],
+    "answer": [1],
+    "explain": "Frame Debugger 会显示每个 Draw Call 的批次原因，例如「SRP Batcher: Not compatible」「Objects have different materials」，是定位合批失败的第一手工具。SRP Batcher 要求同一 Shader 变体、CBUFFER 布局一致，而 MaterialPropertyBlock 会绕过逐材质 CBUFFER 直接导致不兼容。合批与 Shader 名字无关，只与变体和常量缓冲布局有关，所以 C 错。追问：为什么开着 Frame Debugger 时性能数据不能当基准、如何看一个 Draw Call 由哪些物体组成。",
+    "tags": ["Frame Debugger", "SRP Batcher", "批处理"]
+  },
+  {
+    "id": "render-20",
+    "cat": "render",
+    "level": "高级",
+    "type": "multi",
+    "q": "下列哪些情况会导致 SRP Batcher 失效或无法合批？",
+    "options": [
+      "材质通过 MaterialPropertyBlock 修改属性",
+      "材质属性没有放在 CBUFFER(UnityPerMaterial) 里，或同一 Shader 不同 Pass 的 CBUFFER 布局不一致",
+      "两个物体使用的是不同 Shader 变体（例如关键字不同）",
+      "物体使用了 GPU Instancing，因此必然与 SRP Batcher 互斥"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "SRP Batcher 的合批单位是「同一 Shader 变体 + 一致的 UnityPerMaterial CBUFFER 布局」：用 MaterialPropertyBlock 写属性会绕过逐材质 CBUFFER，CBUFFER 布局不一致或属性放在 CBUFFER 之外都会判定为不兼容，变体不同则 CBUFFER 结构根本不同。GPU Instancing 与 SRP Batcher 并非简单互斥，Unity 会按情况选择路径，所以 D 的绝对化说法错误。追问：URP 下 Static Batching 与 SRP Batcher 同时可用时如何取舍（静态合批后的网格常常失去逐材质 CBUFFER 复用，要按项目实测）。",
+    "tags": ["SRP Batcher", "MaterialPropertyBlock", "Shader 变体"]
+  },
+  {
+    "id": "render-21",
+    "cat": "render",
+    "level": "高级",
+    "type": "single",
+    "q": "关于切线空间法线贴图，下列说法正确的是？",
+    "options": [
+      "法线贴图直接存世界空间法线，所以物体旋转后必须重新烘焙",
+      "切线空间法线以顶点的 TBN 为基，贴图存的是相对表面法线的扰动，因此同一张图可复用到不同朝向的面，但要求模型有正确的切线与 UV",
+      "法线贴图会真正改变模型轮廓，所以低模可以完全替代高模",
+      "法线贴图的蓝色通道恒等于 1，可以安全丢弃"
+    ],
+    "answer": [1],
+    "explain": "切线空间法线把扰动编码在以切线、副切线、法线构成的坐标系里，只要 UV 和切线正确，同一张法线贴图就能贴到不同朝向的面上，这也是它比世界空间法线更常用的原因。它只改变着色时使用的法线，不改变几何轮廓，剪影仍然是低模，所以 C 错。蓝色通道存的是法线 Z 分量，只有在完全平坦处才接近 1，丢弃会丢失细节。追问：模型缺少切线时 Unity 如何处理、Mikktspace 与法线贴图的 Y 通道翻转。",
+    "tags": ["法线贴图", "切线空间", "TBN"]
+  },
+  {
+    "id": "render-22",
+    "cat": "render",
+    "level": "高级",
+    "type": "multi",
+    "q": "大型场景要稳定 60 FPS，关于剔除与 LOD，下列做法合理的有？",
+    "options": [
+      "烘焙 Occlusion Culling 数据，让被墙挡住的对象不提交绘制，同时注意动态物体默认不参与遮挡剔除",
+      "用 LOD Group 按屏幕占比切换网格，并配合 LOD Bias 与远处的 Cull 比例控制开销",
+      "Frustum Culling 由相机视锥自动完成，但 Bounds 设得过大或过小都会让剔除结果不符合预期",
+      "为了减少 Draw Call，把所有物体合并成一个 Mesh 并关闭剔除，这是最优解"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "遮挡剔除能整块跳过被遮挡物体，但依赖烘焙好的遮挡体与被遮挡体标记，动态物体默认不参与，需要额外处理；LOD Group 按屏幕相对高度切档，LOD Bias 可整体调节质量与开销；视锥剔除依赖 Renderer.bounds，Bounds 过大会导致该剔的没剔，过小则会在边缘突然消失。把整个场景合并成一个 Mesh 会让视锥与遮挡剔除完全失效、也无法做 LOD，通常得不偿失。追问：Occlusion Culling 数据在运行时如何加载、移动端内存与烘焙时间的代价。",
+    "tags": ["Occlusion Culling", "LOD", "Frustum Culling"]
+  },
+  {
+    "id": "render-23",
+    "cat": "render",
+    "level": "高级",
+    "type": "judge",
+    "q": "开启 HDR 后相机颜色缓冲可以存超过 1 的亮度值，配合 Tonemapping 与曝光（EV）能把高亮区域压回可显示范围，因此 Bloom 的阈值通常设在 1 附近或更高。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "HDR 让高光保留超过 1 的亮度，Bloom 才能按阈值提取真正的高亮部分，最后由 Tonemapping 把宽动态范围映射回 0-1 输出；曝光（EV）整体缩放亮度，模拟相机或人眼的适应过程。若不开 HDR，超过 1 的部分在写入 LDR 缓冲时就被截断，Bloom 阈值调得再高也拿不到真实高光。追问：移动端 HDR 常用 R11G11B10 格式及其带宽代价、Tonemapping 的几种曲线差异。",
+    "tags": ["HDR", "曝光", "Tonemapping"]
+  }
+]

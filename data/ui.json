@@ -1,0 +1,244 @@
+[
+  {
+    "id": "ui-01",
+    "cat": "ui",
+    "level": "基础",
+    "type": "single",
+    "q": "UGUI 中一个 Image 从被标记为脏到最终提交给 GPU，下面哪条链路是正确的？",
+    "options": [
+      "Graphic 生成顶点 → Canvas 收集 CanvasRenderer → Canvas.BuildBatch 合批 → 提交 GPU",
+      "Graphic → MeshRenderer → Canvas → GPU",
+      "CanvasRenderer → Graphic → Canvas → GPU，全程不产生合批",
+      "Canvas → CanvasRenderer → Graphic → GPU，每个 Image 固定一次 Draw Call"
+    ],
+    "answer": [0],
+    "explain": "UGUI 里 Graphic（Image/Text）只负责 OnPopulateMesh 生成顶点，CanvasRenderer 持有网格，Canvas 才是重建与合批的单位：一次 BuildBatch 把同材质、同图集且层级连续的 CanvasRenderer 合成一个批次。MeshRenderer 不参与 UGUI 渲染。正因为 Canvas 是整批重建，改动一个元素才会牵动同 Canvas 下的其它元素，这也是 Canvas 拆分优化的根源。",
+    "tags": ["UGUI", "Canvas", "合批", "CanvasRenderer"]
+  },
+  {
+    "id": "ui-02",
+    "cat": "ui",
+    "level": "基础",
+    "type": "single",
+    "q": "一个 100×100 的 Image，anchorMin = anchorMax = (1, 0)，pivot = (1, 0)，希望它的右下角始终贴在父节点右下角，anchoredPosition 应设为多少？",
+    "options": [
+      "(0, 0)",
+      "(50, 50)",
+      "(-50, -50)",
+      "(100, 100)"
+    ],
+    "answer": [0],
+    "explain": "anchoredPosition 是 pivot 相对锚点参考点的偏移；四个锚点值相等时，参考点就是父节点上的那个点。pivot=(1,0) 把轴心放在图片右下角，所以 (0,0) 恰好让右下角与父节点右下角重合。填 (-50,-50) 是把 pivot 当成中心又想做半宽偏移的典型错误。追问：anchorMin≠anchorMax 进入拉伸模式后，sizeDelta 的含义是什么（相对父尺寸的差值，而非绝对尺寸）。",
+    "tags": ["RectTransform", "锚点", "轴心"]
+  },
+  {
+    "id": "ui-03",
+    "cat": "ui",
+    "level": "基础",
+    "type": "single",
+    "q": "一套 1920×1080 设计的 UI 要同时适配 16:9 手机和 4:3 平板，要求宽度方向优先保证不裁切，CanvasScaler 应如何配置？",
+    "options": [
+      "Scale With Screen Size，Match Width Or Height = 0（按宽度匹配）",
+      "Scale With Screen Size，Match Width Or Height = 1（按高度匹配）",
+      "Constant Pixel Size，Reference Pixels Per Unit 调大",
+      "Constant Physical Size，按 DPI 缩放"
+    ],
+    "answer": [0],
+    "explain": "Match=0 时缩放系数只由宽度决定，横向布局不会被裁，纵向多出来的空间靠锚点和留白处理；Match=1 按高度缩放，在更宽的屏幕上会把整个 Canvas 放大，横向元素容易被裁掉。Constant Pixel Size 不随分辨率变化，仅适合固定分辨率或工具类界面；Constant Physical Size 按物理尺寸换算，移动端很少用。追问：横竖屏切换时 CanvasScaler 与 SafeArea 的配合顺序。",
+    "tags": ["CanvasScaler", "UI适配", "分辨率"]
+  },
+  {
+    "id": "ui-04",
+    "cat": "ui",
+    "level": "基础",
+    "type": "judge",
+    "q": "判断：UGUI 的 Text 和 TextMeshPro 在修改文本时都会重建所在 Canvas 的合批，因此两者的性能没有本质差别。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "两者修改文本都会 SetVerticesDirty，最终都触发所在 Canvas 的 Graphic rebuild，这一点相似；差别在于生成成本与字体图集管理。Text 使用动态字体，字符首次出现或图集扩张时会触发 Font.textureRebuilt，让所有引用该字体的 Text 重建，且每个字符一个 quad；TMP 使用预生成 SDF 图集和更高效的网格生成，字符数多、频繁刷新时优势明显。追问：TMP 首次显示生僻字为什么会卡一下（图集扩容 + 材质贴图重建）。",
+    "tags": ["Text", "TextMeshPro", "字体图集"]
+  },
+  {
+    "id": "ui-05",
+    "cat": "ui",
+    "level": "基础",
+    "type": "single",
+    "q": "场景里按钮点击无反应，确认按钮 Image 的 Raycast Target 已勾选。以下哪项最不可能是原因？",
+    "options": [
+      "场景中没有 EventSystem",
+      "Canvas 上没有挂 Graphic Raycaster",
+      "EventSystem 的输入模块与当前 Input System 不匹配",
+      "Canvas 的 Render Mode 是 Screen Space - Overlay"
+    ],
+    "answer": [3],
+    "explain": "Overlay 模式本身完全不影响点击，它只是决定 Canvas 画在哪个相机之后。常见故障是缺 EventSystem、缺 Graphic Raycaster、EventSystem 上挂的是 StandaloneInputModule 而项目启用了新 Input System（应改用 InputSystemUIInputModule），或者上层有 raycastTarget=true 的全屏透明 Image 把命中截走。追问：怎样用 EventSystem.current.RaycastAll 打印出当前点击被哪个对象挡住。",
+    "tags": ["EventSystem", "GraphicRaycaster", "InputSystem"]
+  },
+  {
+    "id": "ui-06",
+    "cat": "ui",
+    "level": "进阶",
+    "type": "single",
+    "q": "每帧只改一个 Text 的文字，Profiler 里 Canvas.SendWillRenderCanvases 却占了 3~4ms，最准确的解释是？",
+    "options": [
+      "Text 修改只影响自己的 CanvasRenderer，不会触发 Canvas 重建",
+      "顶点变脏后所在 Canvas 会整体重建批次，同 Canvas 下 Graphic 越多、网格越复杂，单点修改越贵",
+      "每次改文字都会触发 Resources.UnloadUnusedAssets",
+      "只有 LayoutGroup 变化才会重建，Text 不会造成重建"
+    ],
+    "answer": [1],
+    "explain": "Graphic.SetVerticesDirty 会把所属 Canvas 标记为 dirty，下一帧 Canvas 重建的是该 Canvas 下所有批次，而不是只重建被改的那个 Text，所以同 Canvas 元素越多成本越高。Layout 重建（LayoutRebuilder）和 Graphic 重建是两条独立路径，Text 只走后者。常见解法是把高频刷新的文本（倒计时、分数）放进独立子 Canvas。追问：什么操作会走 Layout 重建而不是顶点重建。",
+    "tags": ["Rebuild", "脏标记", "Canvas"]
+  },
+  {
+    "id": "ui-07",
+    "cat": "ui",
+    "level": "进阶",
+    "type": "multi",
+    "q": "以下哪些做法有助于减少 UGUI 的 Draw Call？（多选）",
+    "options": [
+      "把同一界面用到的零散小图打进同一个 Sprite Atlas",
+      "在两层同图集的 Image 之间插入一个使用不同材质的 Image",
+      "把材质一致、层级连续的 UI 元素放在同一个 Canvas 下",
+      "给每个 Image 单独指定不同材质，方便各自调参"
+    ],
+    "answer": [0, 2],
+    "explain": "合批的硬条件是材质/图集相同、渲染顺序连续，中间插入不同材质会把批次切成两段，Draw Call 反而增加；每个元素独立材质等于主动放弃合批。同图集加连续层级是最直接的降 Draw Call 手段，但要注意图集过大会带来加载粒度粗、内存峰值高的问题。追问：为什么 Mask 也会打断合批（Stencil 需要额外 pass 与状态切换）。",
+    "tags": ["图集", "合批", "DrawCall"]
+  },
+  {
+    "id": "ui-08",
+    "cat": "ui",
+    "level": "进阶",
+    "type": "single",
+    "q": "滚动列表需要裁剪超出可视区域的内容，关于 Mask 与 RectMask2D 的说法正确的是？",
+    "options": [
+      "Mask 依赖模板缓冲（Stencil），通常额外增加 Draw Call 并打断合批；RectMask2D 只支持矩形裁剪但开销更低",
+      "RectMask2D 支持任意形状裁剪，而且比 Mask 更贵",
+      "两者底层实现相同，只是组件命名不同",
+      "Mask 不会打断合批，RectMask2D 才会打断合批"
+    ],
+    "answer": [0],
+    "explain": "Mask 通过 Stencil 写入/测试实现裁剪，需要额外的 pass 和材质状态切换，通常会让被裁剪内容多出 2 个左右 Draw Call 并中断同 Canvas 合批；RectMask2D 用矩形裁剪参数在 shader 里 discard，不增加额外 pass，是列表、窗口这类矩形裁剪的首选。圆角、异形裁剪才需要 Mask 或自定义 shader。追问：多层 RectMask2D 嵌套时裁剪区域如何求交。",
+    "tags": ["Mask", "RectMask2D", "裁剪"]
+  },
+  {
+    "id": "ui-09",
+    "cat": "ui",
+    "level": "进阶",
+    "type": "judge",
+    "q": "判断：把上层遮挡 Image 的 Raycast Target 取消勾选，或者把它的 CanvasGroup.blocksRaycasts 设为 false，都能让点击穿透到下层 UI。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "GraphicRaycaster 只对 raycastTarget=true 的 Graphic 做命中测试，取消勾选后该 Image 不再参与射线检测，点击自然落到下层；CanvasGroup.blocksRaycasts=false 会让整个子树的 Graphic 都不参与射线检测，但视觉显示不受影响。注意 blocksRaycasts 作用于整个 CanvasGroup 子树，只想让某个子节点穿透时要单独加 CanvasGroup。追问：blocksRaycasts 与 interactable、alpha 三者的区别。",
+    "tags": ["点击穿透", "RaycastTarget", "CanvasGroup"]
+  },
+  {
+    "id": "ui-10",
+    "cat": "ui",
+    "level": "进阶",
+    "type": "single",
+    "q": "一个背包格子预制体同时挂了 VerticalLayoutGroup、ContentSizeFitter（Vertical Fit = Preferred Size）和 LayoutElement，列表滚动时 CPU 明显偏高，最可能的原因是？",
+    "code": "// 每个格子\nvar vlg = go.AddComponent<VerticalLayoutGroup>();\nvar fitter = go.AddComponent<ContentSizeFitter>();\nfitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;\n// 滚动时还在改 content.anchoredPosition",
+    "options": [
+      "LayoutGroup 触发布局计算改变子物体尺寸，ContentSizeFitter 又依尺寸反向触发布局，形成级联重建",
+      "ContentSizeFitter 只在 Start 执行一次，运行时没有开销",
+      "LayoutGroup 的计算在 GPU 上完成，瓶颈是填充率",
+      "只要把格子的 Raycast Target 关掉就能消除这部分开销"
+    ],
+    "answer": [0],
+    "explain": "Layout 重建是 CPU 行为：LayoutGroup 收集子物体、算 min/preferred size、回写 RectTransform，ContentSizeFitter 根据子物体尺寸反过来改自身尺寸，很容易形成多轮 Rebuild，嵌套越深越贵。滚动时如果还伴随 SetActive 或改 padding，会每帧触发重建。Raycast Target 只影响射线检测，与布局无关。追问：LayoutRebuilder.ForceRebuildLayoutImmediate 为什么在热路径上更危险。",
+    "tags": ["LayoutGroup", "ContentSizeFitter", "布局重建"]
+  },
+  {
+    "id": "ui-11",
+    "cat": "ui",
+    "level": "进阶",
+    "type": "multi",
+    "q": "做一个“按钮按下轻微缩放 + 提示文字淡出”的动画，以下哪些是推荐做法？（多选）",
+    "options": [
+      "用 Animator 或 DOTween 改 RectTransform.localScale 和 CanvasGroup.alpha",
+      "每帧修改 LayoutGroup 的 padding 来实现位移动画",
+      "动画前缓存 Transform、CanvasGroup 引用，避免在回调里反复 GetComponent",
+      "每帧调用 SetNativeSize 让文字跟随缩放"
+    ],
+    "answer": [0, 2],
+    "explain": "localScale 和 CanvasGroup.alpha 不触发布局重建，属于变换与批次属性的更新，是 UI 动画的首选通道；改 LayoutGroup padding 会触发 Layout 重建，SetNativeSize 会改尺寸并触发顶点重建，两者都会把一次动画放大成每帧重建。缓存引用则是避免每帧 GetComponent 的通用要求。追问：为什么改 Image.color 通常比改材质属性便宜（顶点色随网格走，不产生材质实例）。",
+    "tags": ["UI动画", "CanvasGroup", "布局重建"]
+  },
+  {
+    "id": "ui-12",
+    "cat": "ui",
+    "level": "进阶",
+    "type": "single",
+    "q": "1000 项的排行榜用 ScrollRect + VerticalLayoutGroup 一次性实例化全部 Item，进入界面卡顿数秒。最有效的优化是？",
+    "options": [
+      "把 Item 的 Raycast Target 全部关掉",
+      "改成虚拟列表：只创建可视区域加缓冲数量的 Item，滚动时复用节点并刷新数据",
+      "把 Canvas 的 Render Mode 改成 World Space",
+      "给 Content 再加一个 ContentSizeFitter"
+    ],
+    "answer": [1],
+    "explain": "一次性实例化 1000 个 Item 意味着 1000 个 Graphic、一次 O(n) 的布局计算和大量顶点，实例化与首帧布局都会炸；虚拟列表把节点数降到可视数量级（通常 10~30 个），滚动只改 anchoredPosition 并复用节点刷新数据，复杂度从 O(n) 降到 O(可视数)。注意复用时要重置状态，避免频繁 SetActive 引起重建抖动。追问：不等高 Item 如何做虚拟列表（前缀和 + 二分查找定位起始索引）。",
+    "tags": ["ScrollRect", "虚拟列表", "对象池"]
+  },
+  {
+    "id": "ui-13",
+    "cat": "ui",
+    "level": "高级",
+    "type": "single",
+    "q": "真机上 UI 帧耗时高，用 Unity Profiler 排查时，哪个指标最能直接定位“UI 每帧在重建”这类问题？",
+    "options": [
+      "Canvas.SendWillRenderCanvases 的耗时与调用频率",
+      "GarbageCollector 的每帧分配量",
+      "Physics.Processing 的耗时",
+      "Audio.DSP 的占用"
+    ],
+    "answer": [0],
+    "explain": "UGUI 的 Layout 与 Graphic 重建都发生在 Canvas.SendWillRenderCanvases 里，它的耗时和每帧是否持续出现，能直接区分“持续重建”与“偶发一次”。再配合 Profiler 的 UI 模块看 batches/rebuild 数、Frame Debugger 看实际 Draw Call，就能判断瓶颈是重建还是填充率。GC 分配高属于另一类问题，物理和音频模块与 UI 重建无关。追问：如果 SendWillRenderCanvases 很低但 GPU 很高，下一步看什么（Overdraw）。",
+    "tags": ["Profiler", "Rebuild", "UI性能"]
+  },
+  {
+    "id": "ui-14",
+    "cat": "ui",
+    "level": "高级",
+    "type": "multi",
+    "q": "需要让 3D 粒子和 UGUI 正确穿插（粒子夹在某两个 UI 层之间），以下哪些方案可行？（多选）",
+    "options": [
+      "Canvas 改为 Screen Space - Camera，用多个 Canvas 设置不同 sortingOrder 与 plane distance，把粒子夹在中间",
+      "使用 World Space Canvas，让粒子和 UI 一起参与相机的深度/排序",
+      "坚持 Screen Space - Overlay，粒子不可能与 UI 穿插",
+      "把粒子渲染到 RenderTexture，再用 RawImage 显示在指定 UI 层级"
+    ],
+    "answer": [0, 1, 3],
+    "explain": "Overlay 模式的 Canvas 在所有相机之后统一绘制，天然压在最上层，无法与场景物体按深度穿插；Screen Space - Camera 和 World Space 让 Canvas 进入相机渲染队列，可以用 sortingOrder、RenderQueue 和相机距离把粒子夹在两层 UI 之间。RenderTexture + RawImage 是把粒子“UI 化”的兜底方案，代价是多一次渲染与 blit，还要处理分辨率和透明边缘。追问：粒子用 Transparent 队列且关闭 ZWrite 时，排序依据是什么。",
+    "tags": ["粒子", "渲染排序", "WorldSpace"]
+  },
+  {
+    "id": "ui-15",
+    "cat": "ui",
+    "level": "高级",
+    "type": "single",
+    "q": "关于 Canvas 拆分的说法，正确的是？",
+    "options": [
+      "把高频变化的小元素放进独立子 Canvas，可把重建限制在该子 Canvas 内，但每个子 Canvas 至少增加一个批次",
+      "拆得越细越好，Canvas 数量不影响性能",
+      "子 Canvas 不能隔离重建，只是层级上的视觉分组",
+      "拆 Canvas 会减少 Draw Call，因为所有 Canvas 最终会自动合并成一个批次"
+    ],
+    "answer": [0],
+    "explain": "子 Canvas 是独立的重建与合批单元：改子 Canvas 里的元素只重建该 Canvas，父 Canvas 不受影响，这是隔离高频刷新 UI 的标准手段。但每个 Canvas 至少产生一个批次，且子 Canvas 与父 Canvas 之间不能合批，拆太碎会让 Draw Call 上升。实践中按“静态背景 / 高频动态元素 / 弹窗”粗粒度拆分，而不是一个元素一个 Canvas。追问：嵌套 Canvas 的 dirty 标记会不会向上传播。",
+    "tags": ["Canvas拆分", "重建隔离", "批次"]
+  },
+  {
+    "id": "ui-16",
+    "cat": "ui",
+    "level": "高级",
+    "type": "judge",
+    "q": "判断：处理刘海屏时，只要给根 Canvas 挂一个 SafeArea 脚本设置 anchorMin/anchorMax，就能保证所有子 UI 都避开刘海。",
+    "options": ["正确", "错误"],
+    "answer": [1],
+    "explain": "改根节点的锚点只是收缩了根 RectTransform 的可用区域，子元素如果使用固定 anchoredPosition、负偏移或全屏铺满（背景图、贴边按钮）仍会跑到安全区外。正确做法是背景单独铺满全屏，内容放在一个受 SafeArea 约束的容器下，并在横竖屏切换、分辨率变化时重新读取 Screen.safeArea 计算。追问：Editor 下如何模拟刘海（Device Simulator）以及 Android 上 cutout 模式的差异。",
+    "tags": ["SafeArea", "刘海屏", "适配"]
+  }
+]

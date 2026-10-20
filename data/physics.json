@@ -1,0 +1,243 @@
+[
+  {
+    "id": "physics-01",
+    "cat": "physics",
+    "level": "基础",
+    "type": "single",
+    "q": "关于 Collision 回调与 Trigger 回调的区别，哪项正确？",
+    "options": [
+      "Collision 回调会给出接触点、法线并产生物理阻挡；Trigger 回调不产生物理阻挡，也没有接触点，通常只传对方 Collider。",
+      "Trigger 回调也会给出接触点，只是不会产生力。",
+      "只要两个 Collider 都存在，即使都没有 Rigidbody，也会触发 OnCollisionEnter。",
+      "OnTriggerEnter 在 Trigger 体积内每帧都会调用。"
+    ],
+    "answer": [0],
+    "explain": "Collision 回调发生在实体碰撞中，Collision 参数包含 contacts、relativeVelocity 等信息，物体会被阻挡并产生碰撞响应。Trigger 只是把 Collider 的 isTrigger 打开，用于范围检测，不会阻挡物体，也没有接触点；进入、停留、离开分别对应 OnTriggerEnter、OnTriggerStay、OnTriggerExit。物理碰撞和 Trigger 事件通常都要求至少一方带 Rigidbody，两个纯静态 Collider 不会产生这些回调。",
+    "tags": ["Collision", "Trigger", "OnTriggerEnter", "碰撞回调"]
+  },
+  {
+    "id": "physics-02",
+    "cat": "physics",
+    "level": "基础",
+    "type": "single",
+    "q": "关于 Rigidbody 的 Dynamic、Kinematic 与 Static 三种状态，哪项正确？",
+    "options": [
+      "Dynamic 受重力和力驱动；Kinematic 不受力但可用 MovePosition/MoveRotation 移动并推开 Dynamic；Static 是未挂 Rigidbody 的静态碰撞体，不应随意移动。",
+      "Kinematic 也会受重力，只是不会被玩家推动。",
+      "Static 就是 isKinematic = true 的 Rigidbody，适合做移动平台。",
+      "Dynamic 只能用 transform.position 移动，AddForce 不会生效。"
+    ],
+    "answer": [0],
+    "explain": "Dynamic 刚体参与完整物理积分，受重力、力和碰撞冲量影响；Kinematic 刚体不受重力和力，但通过 MovePosition/MoveRotation 移动时仍能与 Dynamic 刚体产生碰撞并传递动量。Static 指没有 Rigidbody 的 Collider（或标记为 Static 的场景几何），适合地面和墙，不应频繁移动。移动平台应使用 Kinematic Rigidbody，直接移动静态碰撞体会带来昂贵的物理重建和不可靠的接触。",
+    "tags": ["Rigidbody", "Dynamic", "Kinematic", "Static"]
+  },
+  {
+    "id": "physics-03",
+    "cat": "physics",
+    "level": "基础",
+    "type": "judge",
+    "q": "物理模拟和相关回调按固定时间步长推进；当渲染帧率高于物理步长时，一个渲染帧内可能执行 0 次或多次 FixedUpdate。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "FixedUpdate 由物理时间累积驱动，默认 Time.fixedDeltaTime 为 0.02 秒，即约 50 次/秒，与渲染帧率解耦。渲染帧很快时，一个渲染帧内可能没有物理步；渲染帧很慢时，Unity 会补跑多个物理步，但补跑次数受 Time.maximumDeltaTime 限制。碰撞检测和 OnCollisionEnter 等物理回调也发生在物理更新阶段，因此适合把刚体运动放在 FixedUpdate 中处理。",
+    "tags": ["FixedUpdate", "fixedDeltaTime", "物理步长"]
+  },
+  {
+    "id": "physics-04",
+    "cat": "physics",
+    "level": "基础",
+    "type": "single",
+    "q": "为角色选择 CapsuleCollider 而不是 MeshCollider，最主要的原因是？",
+    "options": [
+      "Capsule 的碰撞计算更便宜，在台阶和斜面边缘也更稳定；非凸 MeshCollider 不能用于非 Kinematic 的 Rigidbody，凸网格同样更贵。",
+      "Capsule 会自动贴合角色网格的每个凹凸。",
+      "MeshCollider 不能设置为 Trigger。",
+      "Capsule 一定比 BoxCollider 精确。"
+    ],
+    "answer": [0],
+    "explain": "原始碰撞体（Box、Sphere、Capsule）用解析形状做检测，开销低且接触稳定；Capsule 的圆滑侧面还能减少角色卡在台阶或墙缝的情况。MeshCollider 依赖网格三角形，凸网格可用于 Dynamic 刚体但成本更高，非凸网格只能用于静态或 Kinematic 碰撞体。因此角色通常用 Capsule 近似，复杂外形再用子碰撞体组合，而不是直接用高面数网格。",
+    "tags": ["CapsuleCollider", "MeshCollider", "Collider 性能"]
+  },
+  {
+    "id": "physics-05",
+    "cat": "physics",
+    "level": "基础",
+    "type": "single",
+    "q": "一个球从斜面滚下，希望减少弹跳并增加滚动阻力，应优先调整哪组属性？",
+    "options": [
+      "提高 Physic Material 的 Dynamic Friction、降低 Bounciness，并检查 Friction Combine 与 Bounce Combine。",
+      "提高 Bounciness，降低 Static Friction。",
+      "把 Rigidbody.mass 设为 0。",
+      "把球的 Collider 的 isTrigger 设为 true。"
+    ],
+    "answer": [0],
+    "explain": "Physic Material 的 Bounciness 控制弹性，Dynamic Friction 控制已经滑动时的阻力，Static Friction 决定从静止开始运动所需的力。降低 Bounciness 能减少反弹，提高 Dynamic Friction 会增加接触面的滑动阻力，Combine 模式则决定两个材质接触时如何合成参数。mass 为 0 不是正常的无弹跳设置，Trigger 则会完全关闭物理碰撞响应。若要衰减球体的滚动，还应调整 Rigidbody.angularDrag。",
+    "tags": ["Physic Material", "摩擦力", "Bounciness", "Friction Combine"]
+  },
+  {
+    "id": "physics-06",
+    "cat": "physics",
+    "level": "进阶",
+    "type": "single",
+    "q": "高速子弹连续穿过薄墙，最合理的修复方案是？",
+    "options": [
+      "把子弹 Rigidbody.collisionDetectionMode 设为 ContinuousDynamic，并让墙使用静态 Collider；必要时再用 Raycast 做命中预判。",
+      "把 Time.fixedDeltaTime 调大，让每个物理步覆盖更长的距离。",
+      "把子弹设为 Kinematic，并每帧直接修改 transform.position。",
+      "把墙的 Collider 设为 Trigger，这样就不会穿透。"
+    ],
+    "answer": [0],
+    "explain": "Discrete 只在每个物理步采样刚体位置，子弹在一个步长内从墙的一侧跳到另一侧时就会漏检。Continuous 主要针对静态碰撞体，ContinuousDynamic 能对静态和动态碰撞体做连续检测，适合高速子弹；Speculative 更便宜，但精度和适用场景不同。调大 fixedDeltaTime 会让单步位移更大，Kinematic 直接改 transform 或把墙设为 Trigger 都不会产生可靠的阻挡。",
+    "tags": ["Collision Detection", "ContinuousDynamic", "穿透", "CCD"]
+  },
+  {
+    "id": "physics-07",
+    "cat": "physics",
+    "level": "进阶",
+    "type": "multi",
+    "q": "关于物理查询与 LayerMask，哪些说法正确？",
+    "options": [
+      "Physics.Raycast 返回 bool 并只给出最近命中；RaycastAll 返回所有命中，但数组顺序不保证按距离排序。",
+      "LayerMask 参数应传层索引，所以直接传 LayerMask.NameToLayer(\"Enemy\") 即可。",
+      "SphereCast 适合有体积的扫掠检测（如角色胶囊），OverlapSphere 适合无方向的范围内查询。",
+      "LayerMask 应传位掩码，如 1 << LayerMask.NameToLayer(\"Enemy\")；Physics.Raycast 的 maxDistance 默认是 Infinity。"
+    ],
+    "answer": [0, 2, 3],
+    "explain": "Raycast 只关心最近的一个命中，RaycastAll 会返回所有命中但顺序没有保证，需要按 distance 自行排序。LayerMask 是位掩码，NameToLayer 返回的是层索引，直接传索引通常会得到错误的层组合，应该用 1 << layer 或 LayerMask.GetMask。SphereCast 沿射线扫掠一个球体，适合角色这类有体积的检测；OverlapSphere 不做方向投射，直接查询球范围内的 Collider。",
+    "tags": ["Raycast", "SphereCast", "OverlapSphere", "LayerMask"]
+  },
+  {
+    "id": "physics-08",
+    "cat": "physics",
+    "level": "进阶",
+    "type": "single",
+    "q": "项目全局 Physics.queriesHitTriggers 为 true，现在希望某一次 Raycast 忽略 Trigger，而其他查询保持原行为。应该怎么做？",
+    "options": [
+      "给该次调用传入 QueryTriggerInteraction.Ignore。",
+      "给该次调用传入 QueryTriggerInteraction.UseGlobal。",
+      "查询前把全局 Physics.queriesHitTriggers 设为 false，查询后恢复。",
+      "改用 RaycastAll，它会自动忽略 Trigger。"
+    ],
+    "answer": [0],
+    "explain": "QueryTriggerInteraction 提供逐次查询的覆盖：Ignore 强制忽略 Trigger，Collide 强制命中 Trigger，UseGlobal 则沿用 Physics.queriesHitTriggers。给单次 Raycast 传 Ignore 不会影响其他查询，也不会产生全局状态恢复遗漏的问题。临时改全局开关容易影响同一帧内的其他系统，而 RaycastAll 默认并不会自动忽略 Trigger。",
+    "tags": ["QueryTriggerInteraction", "Raycast", "Trigger"]
+  },
+  {
+    "id": "physics-09",
+    "cat": "physics",
+    "level": "进阶",
+    "type": "single",
+    "q": "每帧进行大量射线检测时，使用 RaycastNonAlloc 的主要收益和注意点是什么？",
+    "options": [
+      "复用调用方预分配的数组，避免每次查询分配结果数组；返回的是实际命中数，容量不足会截断，需要按返回值遍历。",
+      "它保证返回全部命中，不受数组长度限制。",
+      "它把查询放到后台线程，所以没有主线程开销。",
+      "它只适用于 Trigger 查询。"
+    ],
+    "answer": [0],
+    "explain": "RaycastAll 每次都会创建并返回一个新数组，高频调用会持续产生 GC 压力；RaycastNonAlloc 把结果写入传入的缓冲区并返回命中数量，从而复用内存。缓冲区容量不足时只会保留一部分结果，因此要按返回的 count 遍历，并根据业务上限选择足够大的数组。它仍然在主线程同步执行，只是减少了分配；更极端的批量查询可以考虑 RaycastCommand 配合 Job System。",
+    "tags": ["RaycastNonAlloc", "GC", "物理查询", "性能优化"]
+  },
+  {
+    "id": "physics-10",
+    "cat": "physics",
+    "level": "进阶",
+    "type": "single",
+    "q": "关于 CharacterController 与 Rigidbody 角色控制，哪项正确？",
+    "options": [
+      "CharacterController 通过胶囊扫掠处理移动、台阶和斜坡，不受 AddForce 或重力自动驱动；需要自己施加重力，也不会自动被 Rigidbody 推动。",
+      "CharacterController 是 Rigidbody 的子类，所以会自动受重力。",
+      "CharacterController 可以用 AddForce 移动，并自动产生 OnCollisionEnter。",
+      "CharacterController 不需要任何 Collider，因此不会与场景碰撞。"
+    ],
+    "answer": [0],
+    "explain": "CharacterController 是独立的角色移动组件，内部用胶囊形状做扫掠检测，提供 Move、isGrounded、slopeLimit、stepOffset 等能力，但不是 Rigidbody，也不走完整的物理积分。它不会自动受重力，需要在移动向量中自行累加重力；与 Rigidbody 碰撞时也不会像刚体那样被推开，只能通过 OnControllerColliderHit 自行实现推动效果。它的碰撞信息来自控制器回调，而不是常规的 OnCollisionEnter。",
+    "tags": ["CharacterController", "Rigidbody", "角色移动"]
+  },
+  {
+    "id": "physics-11",
+    "cat": "physics",
+    "level": "进阶",
+    "type": "multi",
+    "q": "关于 Unity 的 Joint（关节），哪些说法正确？",
+    "options": [
+      "HingeJoint 适合门、摆锤，可配置 limits 与 motor；ConfigurableJoint 能组合多个自由度，但配置复杂、开销更高。",
+      "FixedJoint 保持两个刚体的相对位置和旋转，适合临时组合物体；可用 breakForce/breakTorque 或主动断开连接。",
+      "Joint 所在对象必须有 Rigidbody；connectedBody 为空表示连接世界，非空时对方也必须有 Rigidbody。",
+      "Joint 能替代 Collider 阻止穿透，所以被连接的物体不需要碰撞体。"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "Joint 约束刚体的运动自由度，HingeJoint 提供铰链轴、限位和马达，FixedJoint 则把两个刚体临时锁在一起，超过 breakForce/breakTorque 会断开。ConfigurableJoint 可以组合平移和旋转约束，但参数多、求解成本也更高；简单关节通常更合适。Joint 只约束运动，不提供碰撞几何，物体仍需要 Collider 才能与场景或其他物体发生接触。",
+    "tags": ["Joint", "HingeJoint", "FixedJoint", "ConfigurableJoint"]
+  },
+  {
+    "id": "physics-12",
+    "cat": "physics",
+    "level": "进阶",
+    "type": "single",
+    "q": "Player 层与 Enemy 层在 Layer Collision Matrix 中未勾选，但两者都有 Collider 和 Rigidbody。代码用 Physics.Raycast 并传入 Enemy 的 LayerMask。以下哪项正确？",
+    "options": [
+      "两者不会产生碰撞或 Trigger 回调；Raycast 仍可命中 Enemy，因为碰撞矩阵和查询 LayerMask 是两套过滤。",
+      "碰撞和 Raycast 都会被碰撞矩阵屏蔽。",
+      "只要一方是 Trigger，碰撞矩阵就会失效。",
+      "碰撞矩阵只影响渲染层级，不影响物理。"
+    ],
+    "answer": [0],
+    "explain": "Layer Collision Matrix 决定两个层之间的碰撞和 Trigger 是否在物理模拟中生效，未勾选时双方不会产生接触或 Trigger 回调。物理查询使用调用时传入的 LayerMask 过滤，和碰撞矩阵相互独立，因此 Raycast 仍能命中 Enemy。若还要过滤 Trigger，需要另外使用 QueryTriggerInteraction；若只是屏蔽某两个具体碰撞体，则可用 Physics.IgnoreCollision。",
+    "tags": ["Layer Collision Matrix", "LayerMask", "物理查询", "碰撞过滤"]
+  },
+  {
+    "id": "physics-13",
+    "cat": "physics",
+    "level": "高级",
+    "type": "single",
+    "q": "Rigidbody 在物理步之间出现渲染抖动，Interpolate 与 Extrapolate 的区别是什么？",
+    "options": [
+      "Interpolate 用上一物理帧和当前物理帧的姿态插值到当前渲染时刻，平滑但引入约一个物理步的视觉延迟；Extrapolate 按速度外推，延迟更低但可能过冲。",
+      "Interpolate 预测未来，Extrapolate 回退过去。",
+      "两者只提高物理模拟精度，不改变渲染姿态。",
+      "开启后就可以不再使用 FixedUpdate。"
+    ],
+    "answer": [0],
+    "explain": "物理以固定步长运行，渲染帧率更高时刚体位置只在物理步更新，直接读取 Transform 会看到台阶式抖动。Interpolate 在两个已计算的物理姿态之间插值，画面更平滑，但显示位置会落后物理状态约一个物理步；Extrapolate 根据当前速度向未来外推，延迟更小，但急停或碰撞时可能出现过冲。它们只影响渲染姿态，不改变物理模拟结果，也不能替代 CCD 或 FixedUpdate。",
+    "tags": ["Interpolation", "Extrapolation", "Rigidbody", "渲染抖动"]
+  },
+  {
+    "id": "physics-14",
+    "cat": "physics",
+    "level": "高级",
+    "type": "judge",
+    "q": "Rigidbody 休眠后会停止常规物理积分以节省 CPU；碰撞、AddForce 或速度变化会将其唤醒。sleepThreshold 是质量归一化能量阈值，调高会让刚体更容易进入休眠。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "休眠是刚体长时间低速运动后的优化状态，处于休眠的刚体不再进行常规积分，直到受到碰撞、力或速度变化等外部刺激。sleepThreshold 表示开始进入休眠的质量归一化能量阈值，调高意味着更容易达到休眠条件，调低则更晚休眠。可以用 IsSleeping 检查状态，用 WakeUp 主动唤醒；大量散落小物件开启休眠通常能明显降低物理开销。",
+    "tags": ["Rigidbody", "休眠", "sleepThreshold", "性能优化"]
+  },
+  {
+    "id": "physics-15",
+    "cat": "physics",
+    "level": "高级",
+    "type": "multi",
+    "q": "在 OnCollisionEnter(Collision c) 中，关于参数信息和用法，哪些说法正确？",
+    "options": [
+      "c.contacts 提供接触点和法线，接触点数量取决于碰撞形状，不能假设只有一个。",
+      "c.relativeVelocity 是碰撞时的相对线速度，可用于计算撞击强度或播放音效。",
+      "c.collider 是对方 Collider，c.gameObject 是对方 GameObject；c.rigidbody 是对方 Rigidbody，可能为 null。",
+      "c.contacts 中的法线方向固定从自身指向对方，与哪一方接收回调无关。"
+    ],
+    "answer": [0, 1, 2],
+    "explain": "一次碰撞可能产生多个接触点，c.contacts 是 ContactPoint 数组，遍历时可用 point、normal、thisCollider/otherCollider 等信息。relativeVelocity 描述碰撞时的相对线速度，适合映射撞击音量、特效强度或伤害。c.collider 和 c.gameObject 指向对方，c.rigidbody 在对方没有 Rigidbody 时为 null，使用前要判空；接触法线的方向与接收回调的一方有关，不能当作固定的自身指向对方。",
+    "tags": ["Collision", "ContactPoint", "relativeVelocity", "碰撞信息"]
+  },
+  {
+    "id": "physics-16",
+    "cat": "physics",
+    "level": "高级",
+    "type": "judge",
+    "q": "移动端物理优化中，应让静态场景物体使用静态碰撞体、用少量原始碰撞体组成 Compound Collider 代替高面数 MeshCollider，并减少同时激活的 Rigidbody；关闭 Auto Sync Transforms 后，修改 Transform 再立即做物理查询前要手动调用 Physics.SyncTransforms。",
+    "options": ["正确", "错误"],
+    "answer": [0],
+    "explain": "静态场景物体不需要 Rigidbody，使用 Box、Sphere、Capsule 等原始碰撞体成本最低；复杂物件可以用多个子 Collider 组成 Compound Collider，由一个 Rigidbody 统一驱动，避免大量独立刚体。高面数 MeshCollider 的构建和碰撞查询都更贵，移动端应尽量用凸包或原始形状近似。关闭 Auto Sync Transforms 能减少 Transform 改动触发的隐式同步，但查询前若依赖最新 Transform，需要显式调用 Physics.SyncTransforms。",
+    "tags": ["移动端优化", "Compound Collider", "Auto Sync Transforms", "静态碰撞体"]
+  }
+]
