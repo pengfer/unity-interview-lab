@@ -2,7 +2,9 @@
 
 面向 **Unity 客户端开发（目标 4 年经验）** 的手机端刷题应用。纯静态单页，零依赖、零构建，直接部署在 GitHub Pages。
 
-👉 线上地址：`https://<your-name>.github.io/unity-interview-lab/`
+👉 线上地址：**https://pengfer.github.io/unity-interview-lab/**
+
+手机浏览器打开后可「添加到主屏幕」，像 App 一样使用。
 
 ## 功能
 
@@ -104,16 +106,12 @@ python scripts/build_bank.py
 仓库已就绪，推上去即可：
 
 ```bash
-git init
-git add .
-git commit -m "feat: Unity 面试题库"
-git branch -M main
-git remote add origin https://github.com/<user>/<repo>.git
+git remote add origin https://github.com/pengfer/unity-interview-lab.git
 git push -u origin main
 ```
 
-然后在仓库 **Settings → Pages** 中选择 `Deploy from a branch`，分支 `main`、目录 `/ (root)`，保存后等待 1 分钟即可通过
-`https://<user>.github.io/<repo>/` 访问。
+本项目当前已部署在 `main` 分支 `/ (root)`，推送后 GitHub Pages 会自动构建，约 1 分钟后生效：
+**https://pengfer.github.io/unity-interview-lab/**
 
 > 索引使用 hash 路由（`#/browse`），刷新与直达任意页面都不会 404。
 
